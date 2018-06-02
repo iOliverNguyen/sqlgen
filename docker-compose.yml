@@ -1,0 +1,19 @@
+version: '3'
+services:
+  mysql:
+    image: mysql
+    ports:
+      - 13306:3306
+    environment:
+      - MYSQL_USER=sqlgen
+      - MYSQL_PASSWORD=sqlgen
+      - MYSQL_DATABASE=sqlgen
+      - MYSQL_RANDOM_ROOT_PASSWORD="yes"
+  postgres:
+    image: postgres:9.6-alpine
+    ports:
+      - 15432:5432
+    environment:
+      - POSTGRES_USER=sqlgen
+      - POSTGRES_PASSWORD=sqlgen
+      - POSTGRES_DB=sqlgen
