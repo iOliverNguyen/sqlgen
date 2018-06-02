@@ -1,0 +1,7 @@
+__*
+.DS_Store
+.vscode
+*.test
+bin
+debug*
+vendor
