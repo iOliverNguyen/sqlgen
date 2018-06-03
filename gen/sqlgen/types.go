@@ -9,7 +9,7 @@ const (
 	timeCreate timeLevel = 2
 )
 
-func (g *gen) appendQueryArg(b []byte, prefix string, col *colDef) []byte {
+func (g *Gen) appendQueryArg(b []byte, prefix string, col *colDef) []byte {
 	nonNil := pathNonNil(prefix, col.pathElems)
 	if nonNil != "" {
 		b = appends(b, "core.Ternary(", nonNil, ", ")
@@ -45,7 +45,7 @@ func (g *gen) appendQueryArg(b []byte, prefix string, col *colDef) []byte {
 			return appends(b, "JSON{", prefix, ".", path, "}")
 		}
 
-		switch gt.TypeString(typ.Underlying()) {
+		switch g.TypeString(typ.Underlying()) {
 		case "bool":
 			zero = "false"
 			return appends(b, "Bool(", prefix, '.', path, ")")
@@ -99,7 +99,7 @@ func (g *gen) appendQueryArg(b []byte, prefix string, col *colDef) []byte {
 	return b
 }
 
-func (g *gen) appendScanArg(b []byte, prefix string, col *colDef) []byte {
+func (g *Gen) appendScanArg(b []byte, prefix string, col *colDef) []byte {
 	path := col.Path()
 	typ := col.fieldType
 	typStr := g.TypeString(typ)
@@ -113,7 +113,7 @@ func (g *gen) appendScanArg(b []byte, prefix string, col *colDef) []byte {
 		return appends(b, "JSON{&", prefix, '.', path, "}")
 	}
 
-	switch gt.TypeString(typ.Underlying()) {
+	switch g.TypeString(typ.Underlying()) {
 	case "bool":
 		return appends(b, "(*Bool)(&", prefix, '.', path, ")")
 	case "float64":
@@ -147,7 +147,7 @@ func (g *gen) appendScanArg(b []byte, prefix string, col *colDef) []byte {
 	panic("Unsupported type: " + typStr)
 }
 
-func (g *gen) appendUpdateArg(b []byte, prefix string, col *colDef) []byte {
+func (g *Gen) appendUpdateArg(b []byte, prefix string, col *colDef) []byte {
 	path := col.Path()
 	typ := col.fieldType
 	typStr := g.TypeString(typ)
@@ -200,7 +200,7 @@ func pathNonNil(prefix string, path pathElems) string {
 	return v[:len(v)-4]
 }
 
-func (g *gen) nonZero(prefix string, col *colDef) string {
+func (g *Gen) nonZero(prefix string, col *colDef) string {
 	nonNil := pathNonNil(prefix, col.BasePath())
 	if nonNil != "" {
 		nonNil += " && "
@@ -225,7 +225,7 @@ func (g *gen) nonZero(prefix string, col *colDef) string {
 		return nonNil + v + " != nil"
 	}
 
-	switch gt.TypeString(typ.Underlying()) {
+	switch g.TypeString(typ.Underlying()) {
 	case "bool":
 		return nonNil + v
 	case "float64", "int", "int64":
@@ -251,8 +251,8 @@ func (g *gen) nonZero(prefix string, col *colDef) string {
 	panic("Unsupported type: " + typStr)
 }
 
-func zero(typ types.Type) string {
-	typStr := gt.TypeString(typ)
+func (g *Gen) zero(typ types.Type) string {
+	typStr := g.TypeString(typ)
 	switch typStr {
 	case "bool":
 		return "false"
