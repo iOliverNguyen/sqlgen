@@ -12,8 +12,8 @@ import (
 	. "github.com/ng-vu/goconveyx"
 	. "github.com/smartystreets/goconvey/convey"
 
-	sq "github.com/ng-vu/sqlgen"
 	mock "github.com/ng-vu/sqlgen/mock"
+	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 var (

@@ -7,9 +7,9 @@ import (
 	_ "github.com/lib/pq"
 	. "github.com/smartystreets/goconvey/convey"
 
-	. "github.com/ng-vu/sqlgen"
 	core "github.com/ng-vu/sqlgen/core"
 	"github.com/ng-vu/sqlgen/mock"
+	. "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 var (

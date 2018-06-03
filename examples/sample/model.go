@@ -3,7 +3,7 @@ package test
 import (
 	"time"
 
-	sq "github.com/ng-vu/sqlgen"
+	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 //go:generate ../../scripts/goderive.sh

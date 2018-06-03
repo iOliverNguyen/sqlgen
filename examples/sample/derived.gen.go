@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"time"
 
-	sq "github.com/ng-vu/sqlgen"
 	core "github.com/ng-vu/sqlgen/core"
+	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 type (

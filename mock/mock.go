@@ -3,7 +3,7 @@ package mock
 import (
 	"fmt"
 
-	sq "github.com/ng-vu/sqlgen"
+	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 type ErrorMock struct {
