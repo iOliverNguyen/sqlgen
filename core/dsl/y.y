@@ -5,24 +5,30 @@ package dsl
 %}
 
 %union {
+    dc   DeclCommon
     dec  *Declaration
     decs Declarations
+    jn   *Join
+    jns  Joins
     opt  *Option
     opts Options
     str  string
 }
 
-%type  <dec>  decl _from
+%type  <dc>   from join_opts
+%type  <dec>  decl
 %type  <decs> decls
+%type  <jn>   join
+%type  <jns>  joins from_joins
 %type  <opt>  opt
 %type  <opts> list_opts opts
-%type  <str>  name _as as _ident
+%type  <str>  name _as _ident _on
 
 %token ';' '(' ')'
 
-%token GENERATE FROM AS
+%token GENERATE FROM AS JOIN ON
 
-%token <str> IDENT STRING
+%token <str> IDENT STRING JCOND
 
 %%
 
@@ -52,13 +58,20 @@ decls:
 
 
 decl:
-    GENERATE _ident list_opts _from
+    GENERATE _ident list_opts from_joins
     {
         $$ = &Declaration{
-            StructName: $2,
             Options: $3,
-            TableName: $4.TableName,
-            Alias: $4.Alias,
+        }
+        switch len($4) {
+        case 0:
+        case 1:
+            $$.DeclCommon = $4[0].DeclCommon
+        default:
+            $$.Joins = $4
+        }
+        if $2 != "" {
+            $$.StructName = $2
         }
     }
 
@@ -95,16 +108,27 @@ opt:
         }
     }
 
-_from:
+from_joins:
     /* empty */
     {
-        $$ = &Declaration{}
+        $$ = nil
     }
-|   FROM name _as
+|   from
     {
-        $$ = &Declaration{
+        $$ = []*Join{{DeclCommon: $1}}
+    }
+|   from joins
+    {
+        $$ = append([]*Join{{DeclCommon: $1}}, $2...)
+    }
+
+from:
+    FROM name join_opts _as
+    {
+        $$ = DeclCommon{
             TableName: $2,
-            Alias: $3,
+            StructName: $3.StructName,
+            Alias: $4,
         }
     }
 
@@ -113,10 +137,8 @@ _as:
     {
         $$ = ""
     }
-|   as
-
-as:
-    AS name
+|   name
+|   AS name
     {
         $$ = $2
     }
@@ -129,5 +151,48 @@ _ident:
 |   IDENT
 
 name: IDENT | STRING
+
+joins:
+    join
+    {
+        $$ = []*Join{$1}
+    }
+|   joins join
+    {
+        $$ = append($1, $2)
+    }
+
+join:
+    JOIN name join_opts _as _on
+    {
+        $$ = &Join{
+            DeclCommon: DeclCommon{
+                TableName: $2,
+                StructName: $3.StructName,
+                Alias: $4,
+            },
+            OnCond: $5,
+        }
+    }
+
+join_opts:
+    /* empty */
+    {
+        $$ = DeclCommon{}
+    }
+|   '(' _ident ')'
+    {
+        $$ = DeclCommon{ StructName: $2 }
+    }
+
+_on:
+    /* empty */
+    {
+        $$ = ""
+    }
+|   ON JCOND
+    {
+        $$ = $2
+    }
 
 %%
