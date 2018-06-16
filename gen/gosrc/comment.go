@@ -1,9 +1,7 @@
-package dsl
+package gosrc
 
 import (
-	"bytes"
 	"errors"
-	"io"
 	"strings"
 	"unicode"
 )
@@ -20,56 +18,37 @@ var (
 	ErrComment2 = errors.New("sqlgen: Must not mix block declaration and line declaration")
 )
 
-type CommentReader interface {
-	ReadLine() (string, error)
-}
-
-func ParseComment(r CommentReader) (string, error) {
+func ParseComment(lines []string) (res []string, _ error) {
 	mode := 0
-	var buf bytes.Buffer
-loop:
-	for {
-		line, err := r.ReadLine()
-		switch err {
-		case nil:
-		case io.EOF:
-			break loop
-		default:
-			return "", err
-		}
-
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		switch {
 		case line == "":
-			if mode == modeBlock {
-				buf.WriteString("\n")
-			}
+			// skip
 
 		case line == CommentPrefix:
 			switch mode {
 			case modeBlock:
-				return "", ErrComment1
+				return nil, ErrComment1
 			case modeLine:
-				return "", ErrComment2
+				return nil, ErrComment2
 			}
 			mode = modeBlock
 
 		case strings.HasPrefix(line, CommentPrefix):
 			if mode == modeBlock {
-				return "", ErrComment2
+				return nil, ErrComment2
 			}
 			mode = modeLine
 			line = line[len(CommentPrefix):]
 			line = strings.TrimLeftFunc(line, unicode.IsSpace)
-			buf.WriteString(line)
-			buf.WriteString("\n")
+			res = append(res, line)
 
 		default:
 			if mode == modeBlock {
-				buf.WriteString(line)
-				buf.WriteString("\n")
+				res = append(res, line)
 			}
 		}
 	}
-	return strings.TrimSpace(buf.String()), nil
+	return res, nil
 }

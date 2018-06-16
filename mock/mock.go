@@ -3,6 +3,9 @@ package mock
 import (
 	"fmt"
 
+	"reflect"
+	"testing"
+
 	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
@@ -36,4 +39,23 @@ func (m *ErrorMock) Mock(err error, entry *sq.LogEntry) error {
 		return nil
 	}
 	return &Error{err, entry}
+}
+
+func AssertNoError(t *testing.T, err error) {
+	if err != nil {
+		t.Errorf("Expect no error. Got: %v", err)
+		t.FailNow()
+	}
+}
+
+func AssertErrorEqual(t *testing.T, err error, expect string) {
+	if err == nil || err.Error() != expect {
+		t.Errorf("Expect error equal to `%v`. Got: %v", expect, err)
+	}
+}
+
+func AssertEqual(t *testing.T, actual, expect interface{}) {
+	if !reflect.DeepEqual(actual, expect) {
+		t.Errorf("\nExpect:\n`%v`\nGot:\n`%v`", expect, actual)
+	}
 }
