@@ -12,11 +12,11 @@ package dsl
     str  string
 }
 
-%type  <dec>  decl
+%type  <dec>  decl _from
 %type  <decs> decls
 %type  <opt>  opt
 %type  <opts> list_opts opts
-%type  <str>  name _as as
+%type  <str>  name _as as _ident
 
 %token ';' '(' ')'
 
@@ -52,13 +52,13 @@ decls:
 
 
 decl:
-    GENERATE IDENT list_opts FROM name _as
+    GENERATE _ident list_opts _from
     {
         $$ = &Declaration{
             StructName: $2,
             Options: $3,
-            TableName: $5,
-            Alias: $6,
+            TableName: $4.TableName,
+            Alias: $4.Alias,
         }
     }
 
@@ -73,7 +73,11 @@ list_opts:
     }
 
 opts:
-    opt
+    /* empty */
+    {
+        $$ = nil
+    }
+|   opt
     {
         $$ = []*Option{$1}
     }
@@ -91,21 +95,38 @@ opt:
         }
     }
 
+_from:
+    /* empty */
+    {
+        $$ = &Declaration{}
+    }
+|   FROM name _as
+    {
+        $$ = &Declaration{
+            TableName: $2,
+            Alias: $3,
+        }
+    }
+
 _as:
     /* empty */
     {
         $$ = ""
     }
 |   as
-    {
-        $$ = $1
-    }
 
 as:
     AS name
     {
         $$ = $2
     }
+
+_ident:
+    /* empty */
+    {
+        $$ = ""
+    }
+|   IDENT
 
 name: IDENT | STRING
 

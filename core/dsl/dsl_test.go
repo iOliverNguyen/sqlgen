@@ -8,7 +8,7 @@ import (
 )
 
 func TestDSL(t *testing.T) {
-	t.Run("Full syntax", func(t *testing.T) {
+	t.Run("Full simple declaration", func(t *testing.T) {
 		src := `generate Account (plural Accounts) from "account";`
 		file, err := ParseString("test", src)
 		assertNoError(t, err)
@@ -22,12 +22,61 @@ func TestDSL(t *testing.T) {
 		assertErrorEqual(t, err, "Error at test:1:35: syntax error")
 	})
 
-	t.Run("Simple", func(t *testing.T) {
+	t.Run("Spacing", func(t *testing.T) {
+		src := `generate Account()from"account"`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate Account from "account";`+"\n")
+		assertEqual(t, len(file.Declarations), 1)
+	})
+
+	t.Run("Simplified 1", func(t *testing.T) {
+		src := `generate`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate {} from "{}";`+"\n")
+	})
+
+	t.Run("Simplified 2", func(t *testing.T) {
+		src := `generate Account`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate Account from "{}";`+"\n")
+	})
+
+	t.Run("Simplified 3", func(t *testing.T) {
+		src := `generate from account`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate {} from "account";`+"\n")
+	})
+
+	t.Run("Simplified 4", func(t *testing.T) {
+		src := `generate from "account"`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate {} from "account";`+"\n")
+	})
+
+	t.Run("Simplified with options", func(t *testing.T) {
+		src := `generate (plural Accounts)`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate {} (plural Accounts) from "{}";`+"\n")
+	})
+
+	t.Run("Commonly use", func(t *testing.T) {
 		src := `generate Account from account`
 		file, err := ParseString("test", src)
 		assertNoError(t, err)
-		assertEqual(t, file.String(), "generate Account from \"account\";\n")
-		assertEqual(t, len(file.Declarations), 1)
+		assertEqual(t, file.String(), `generate Account from "account";`+"\n")
+	})
+
+	t.Run("Empty option", func(t *testing.T) {
+		src := `generate Account () from "account"`
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), `generate Account from "account";`+"\n")
 	})
 
 	t.Run("Multiple declarations", func(t *testing.T) {
@@ -43,6 +92,19 @@ generate User (plural Users) from "user";
 		assertNoError(t, err)
 		assertEqual(t, file.String(), expected)
 		assertEqual(t, len(file.Declarations), 2)
+	})
+
+	t.Run("Auto semicolon insertion", func(t *testing.T) {
+		src := `generate generate Account generate from account`
+		expected := `
+generate {} from "{}";
+generate Account from "{}";
+generate {} from "account";
+`[1:]
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), expected)
+		assertEqual(t, len(file.Declarations), 3)
 	})
 }
 
