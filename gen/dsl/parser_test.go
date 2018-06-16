@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	. "github.com/ng-vu/sqlgen/core/dsl"
+	. "github.com/ng-vu/sqlgen/gen/dsl"
 )
 
 func TestDSL(t *testing.T) {
@@ -16,7 +16,7 @@ func TestDSL(t *testing.T) {
 		assertEqual(t, len(file.Declarations), 1)
 	})
 
-	t.Run("Syntax error", func(t *testing.T) {
+	t.Run("Error: Syntax error", func(t *testing.T) {
 		src := `generate Account (plural Accounts from "account";`
 		_, err := ParseString("test", src)
 		assertErrorEqual(t, err, "Error at test:1:35: syntax error")
