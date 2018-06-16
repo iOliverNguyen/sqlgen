@@ -1,4 +1,5 @@
-//go:generate goyacc -v= y.y
+//go:generate goyacc -v= -o=y.go y.y
+//go:generate goimports -w y.go
 
 package dsl
 
@@ -40,14 +41,22 @@ type Declaration struct {
 func (d *Declaration) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("generate ")
-	buf.WriteString(d.StructName)
+	if d.StructName == "" {
+		buf.WriteString("{}")
+	} else {
+		buf.WriteString(d.StructName)
+	}
 	if len(d.Options) > 0 {
 		buf.WriteString(" (")
 		buf.WriteString(d.Options.String())
 		buf.WriteString(")")
 	}
 	buf.WriteString(` from "`)
-	buf.WriteString(d.TableName)
+	if d.TableName == "" {
+		buf.WriteString("{}")
+	} else {
+		buf.WriteString(d.TableName)
+	}
 	buf.WriteString(`"`)
 	if d.Alias != "" {
 		buf.WriteString(` as "`)
@@ -85,14 +94,22 @@ func (opt Option) String() string {
 
 type lexer struct {
 	scanner.Scanner
-	err error
+	last int
+	next int
+	err  error
 }
 
-func (l *lexer) Lex(yylval *yySymType) int {
+func (l *lexer) Lex(yylval *yySymType) (tok int) {
+	defer func() { l.last = tok }()
+	if l.next != 0 {
+		tok = l.next
+		l.next = 0
+		return tok
+	}
+
 	if tok := l.Scan(); tok == scanner.EOF {
 		return 0
 	}
-
 	text := l.TokenText()
 	switch text {
 	case "":
@@ -100,6 +117,10 @@ func (l *lexer) Lex(yylval *yySymType) int {
 	case ";", "(", ")":
 		return int(text[0])
 	case "generate":
+		if l.last != 0 && l.last != ';' {
+			l.next = GENERATE
+			return ';'
+		}
 		return GENERATE
 	case "from":
 		return FROM

@@ -40,7 +40,7 @@ const yyEofCode = 1
 const yyErrCode = 2
 const yyInitialStackSize = 16
 
-//line y.y:112
+//line y.y:133
 
 //line yacctab:1
 var yyExca = [...]int{
@@ -51,45 +51,48 @@ var yyExca = [...]int{
 
 const yyPrivate = 57344
 
-const yyLast = 24
+const yyLast = 26
 
 var yyAct = [...]int{
 
-	14, 12, 17, 15, 16, 13, 10, 6, 18, 22,
-	4, 3, 9, 5, 19, 1, 21, 7, 20, 11,
-	23, 8, 2, 24,
+	16, 14, 19, 17, 18, 15, 12, 7, 20, 24,
+	4, 3, 10, 5, 1, 6, 21, 8, 23, 22,
+	13, 9, 25, 2, 11, 26,
 }
 var yyPact = [...]int{
 
-	3, -1000, 9, -1000, -3, 3, 7, -1000, -2, -5,
-	-7, -4, -1000, -7, 0, -1000, -1000, -1000, -5, -1000,
-	-1000, -1000, -7, -1000, -1000,
+	3, -1000, 9, -1000, -3, 3, 7, -1000, -1000, -2,
+	-5, -1000, -7, -4, -1000, -7, 0, -1000, -1000, -1000,
+	-5, -1000, -1000, -1000, -7, -1000, -1000,
 }
 var yyPgo = [...]int{
 
-	0, 11, 22, 1, 21, 19, 0, 18, 16, 15,
+	0, 11, 24, 23, 1, 21, 20, 0, 19, 18,
+	15, 14,
 }
 var yyR1 = [...]int{
 
-	0, 9, 9, 2, 2, 1, 4, 4, 5, 5,
-	3, 7, 7, 8, 6, 6,
+	0, 11, 11, 3, 3, 1, 5, 5, 6, 6,
+	6, 4, 2, 2, 8, 8, 9, 10, 10, 7,
+	7,
 }
 var yyR2 = [...]int{
 
-	0, 1, 2, 1, 3, 6, 0, 3, 1, 3,
-	2, 0, 1, 2, 1, 1,
+	0, 1, 2, 1, 3, 4, 0, 3, 0, 1,
+	3, 2, 0, 3, 0, 1, 2, 0, 1, 1,
+	1,
 }
 var yyChk = [...]int{
 
-	-1000, -9, -2, -1, 7, 4, 10, -1, -4, 5,
-	8, -5, -3, 10, -6, 10, 11, 6, 12, -6,
-	-7, -8, 9, -3, -6,
+	-1000, -11, -3, -1, 7, 4, -10, 10, -1, -5,
+	5, -2, 8, -6, -4, 10, -7, 10, 11, 6,
+	12, -7, -8, -9, 9, -4, -7,
 }
 var yyDef = [...]int{
 
-	0, -2, 1, 3, 0, 2, 6, 4, 0, 0,
-	0, 0, 8, 0, 11, 14, 15, 7, 0, 10,
-	5, 12, 0, 9, 13,
+	0, -2, 1, 3, 17, 2, 6, 18, 4, 12,
+	8, 5, 0, 0, 9, 0, 14, 19, 20, 7,
+	0, 11, 13, 15, 0, 10, 16,
 }
 var yyTok1 = [...]int{
 
@@ -474,14 +477,14 @@ yydefault:
 			yyVAL.decs = append(yyDollar[1].decs, yyDollar[3].dec)
 		}
 	case 5:
-		yyDollar = yyS[yypt-6 : yypt+1]
+		yyDollar = yyS[yypt-4 : yypt+1]
 		//line y.y:56
 		{
 			yyVAL.dec = &Declaration{
 				StructName: yyDollar[2].str,
 				Options:    yyDollar[3].opts,
-				TableName:  yyDollar[5].str,
-				Alias:      yyDollar[6].str,
+				TableName:  yyDollar[4].dec.TableName,
+				Alias:      yyDollar[4].dec.Alias,
 			}
 		}
 	case 6:
@@ -497,43 +500,64 @@ yydefault:
 			yyVAL.opts = yyDollar[2].opts
 		}
 	case 8:
-		yyDollar = yyS[yypt-1 : yypt+1]
+		yyDollar = yyS[yypt-0 : yypt+1]
 		//line y.y:77
+		{
+			yyVAL.opts = nil
+		}
+	case 9:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		//line y.y:81
 		{
 			yyVAL.opts = []*Option{yyDollar[1].opt}
 		}
-	case 9:
+	case 10:
 		yyDollar = yyS[yypt-3 : yypt+1]
-		//line y.y:81
+		//line y.y:85
 		{
 			yyVAL.opts = append(yyDollar[1].opts, yyDollar[3].opt)
 		}
-	case 10:
+	case 11:
 		yyDollar = yyS[yypt-2 : yypt+1]
-		//line y.y:87
+		//line y.y:91
 		{
 			yyVAL.opt = &Option{
 				Name:  yyDollar[1].str,
 				Value: yyDollar[2].str,
 			}
 		}
-	case 11:
+	case 12:
 		yyDollar = yyS[yypt-0 : yypt+1]
-		//line y.y:96
+		//line y.y:100
+		{
+			yyVAL.dec = &Declaration{}
+		}
+	case 13:
+		yyDollar = yyS[yypt-3 : yypt+1]
+		//line y.y:104
+		{
+			yyVAL.dec = &Declaration{
+				TableName: yyDollar[2].str,
+				Alias:     yyDollar[3].str,
+			}
+		}
+	case 14:
+		yyDollar = yyS[yypt-0 : yypt+1]
+		//line y.y:113
 		{
 			yyVAL.str = ""
 		}
-	case 12:
-		yyDollar = yyS[yypt-1 : yypt+1]
-		//line y.y:100
-		{
-			yyVAL.str = yyDollar[1].str
-		}
-	case 13:
+	case 16:
 		yyDollar = yyS[yypt-2 : yypt+1]
-		//line y.y:106
+		//line y.y:120
 		{
 			yyVAL.str = yyDollar[2].str
+		}
+	case 17:
+		yyDollar = yyS[yypt-0 : yypt+1]
+		//line y.y:126
+		{
+			yyVAL.str = ""
 		}
 	}
 	goto yystack /* stack new state and value */
