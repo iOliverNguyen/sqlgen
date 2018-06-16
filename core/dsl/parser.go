@@ -1,10 +1,11 @@
-//go:generate goyacc -v= -o=y.go y.y
+//go:generate goyacc -v=__y.output -o=y.go y.y
 //go:generate goimports -w y.go
 
 package dsl
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/scanner"
@@ -31,37 +32,75 @@ func (ds Declarations) String() string {
 	return buf.String()
 }
 
-type Declaration struct {
-	TableName  string
+type DeclCommon struct {
 	StructName string
+	TableName  string
 	Alias      string
-	Options    Options
+}
+
+type Declaration struct {
+	DeclCommon
+	Options Options
+	Joins   Joins
 }
 
 func (d *Declaration) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("generate ")
-	if d.StructName == "" {
-		buf.WriteString("{}")
-	} else {
-		buf.WriteString(d.StructName)
-	}
+	writeIdent(&buf, d.StructName)
 	if len(d.Options) > 0 {
 		buf.WriteString(" (")
 		buf.WriteString(d.Options.String())
 		buf.WriteString(")")
 	}
-	buf.WriteString(` from "`)
-	if d.TableName == "" {
-		buf.WriteString("{}")
+	if len(d.Joins) == 0 {
+		buf.WriteString(" from ")
+		writeName(&buf, d.TableName)
 	} else {
-		buf.WriteString(d.TableName)
+		buf.WriteString("\n    from ")
+		buf.WriteString(d.Joins.String())
 	}
-	buf.WriteString(`"`)
 	if d.Alias != "" {
 		buf.WriteString(` as "`)
 		buf.WriteString(d.Alias)
 		buf.WriteString(`"`)
+	}
+	return buf.String()
+}
+
+type Joins []*Join
+
+func (jns Joins) String() string {
+	var buf bytes.Buffer
+	for i, jn := range jns {
+		if i > 0 {
+			buf.WriteString("\n    join ")
+		}
+		buf.WriteString(jn.String())
+	}
+	return buf.String()
+}
+
+type Join struct {
+	DeclCommon
+	OnCond string
+}
+
+func (jn *Join) String() string {
+	var buf bytes.Buffer
+	writeName(&buf, jn.TableName)
+	if jn.StructName != "" {
+		buf.WriteString(" (")
+		buf.WriteString(jn.StructName)
+		buf.WriteString(")")
+	}
+	if jn.Alias != "" {
+		buf.WriteString(" as ")
+		buf.WriteString(jn.Alias)
+	}
+	if jn.OnCond != "" {
+		buf.WriteString(" on ")
+		buf.WriteString(jn.OnCond)
 	}
 	return buf.String()
 }
@@ -92,25 +131,67 @@ func (opt Option) String() string {
 	return opt.Name + " " + opt.Value
 }
 
+func writeName(w *bytes.Buffer, s string) {
+	if s == "" {
+		w.WriteString(`"{}"`)
+	} else {
+		b, _ := json.Marshal(s)
+		w.Write(b)
+	}
+}
+
+func writeIdent(w *bytes.Buffer, s string) {
+	if s == "" {
+		w.WriteString(`{}`)
+	} else {
+		w.WriteString(s)
+	}
+}
+
 type lexer struct {
 	scanner.Scanner
+	src  string
 	last int
-	next int
+	next string
+	on   bool
 	err  error
 }
 
 func (l *lexer) Lex(yylval *yySymType) (tok int) {
 	defer func() { l.last = tok }()
-	if l.next != 0 {
-		tok = l.next
-		l.next = 0
-		return tok
+
+	var text string
+	if l.next != "" {
+		text = l.next
+		l.next = ""
+	} else {
+		if tok := l.Scan(); tok == scanner.EOF {
+			return 0
+		}
+		text = l.TokenText()
 	}
 
-	if tok := l.Scan(); tok == scanner.EOF {
-		return 0
+	// lex JCOND
+	if l.on {
+		l.on = false
+		start := l.Position.Offset
+		for text != ";" && text != "generate" && text != "join" {
+			if tok := l.Scan(); tok == scanner.EOF {
+				text = ""
+				break
+			}
+			text = l.TokenText()
+		}
+		end := l.Position.Offset
+		cond := strings.TrimSpace(l.src[start:end])
+		if cond != "" {
+			l.next = text
+			yylval.str = cond
+			return JCOND
+		}
+		// continue
 	}
-	text := l.TokenText()
+
 	switch text {
 	case "":
 		return 0
@@ -118,7 +199,7 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 		return int(text[0])
 	case "generate":
 		if l.last != 0 && l.last != ';' {
-			l.next = GENERATE
+			l.next = text
 			return ';'
 		}
 		return GENERATE
@@ -126,6 +207,11 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 		return FROM
 	case "as":
 		return AS
+	case "join":
+		return JOIN
+	case "on":
+		l.on = true
+		return ON
 	default:
 		if text[0] == '"' || text[0] == '`' {
 			yylval.str = text[1 : len(text)-1]
@@ -141,7 +227,7 @@ func (l *lexer) Error(s string) {
 }
 
 func ParseString(filename, src string) (*File, error) {
-	l := &lexer{}
+	l := &lexer{src: src}
 	l.Init(strings.NewReader(src))
 	l.Filename = filename
 	if yyParse(l) != 0 {

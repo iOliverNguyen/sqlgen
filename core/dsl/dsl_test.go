@@ -108,6 +108,63 @@ generate {} from "account";
 	})
 }
 
+func TestJoin(t *testing.T) {
+	t.Run("Full syntax", func(t *testing.T) {
+		src := `
+generate UserJoinAccount
+	from "user"    (User)    as u
+	join "account" (Account) as a on u.id = a.user_id
+`
+		expected := `
+generate UserJoinAccount
+    from "user" (User) as u
+    join "account" (Account) as a on u.id = a.user_id;
+`[1:]
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), expected)
+		assertEqual(t, len(file.Declarations[0].Joins), 2)
+	})
+
+	t.Run("Full syntax with 3 joins", func(t *testing.T) {
+		src := `
+generate UserJoinAccount
+	from "user"         (User)        as u
+	join "account_user" (AccountUser) as au on u.id = au.user_id
+	join "account"      (Account)     as a  on a.id = au.account_id;
+`
+		expected := `
+generate UserJoinAccount
+    from "user" (User) as u
+    join "account_user" (AccountUser) as au on u.id = au.user_id
+    join "account" (Account) as a on a.id = au.account_id;
+`[1:]
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), expected)
+		assertEqual(t, len(file.Declarations[0].Joins), 3)
+	})
+
+	t.Run("Simplied, keep spacing and double quotes", func(t *testing.T) {
+		src := `
+generate UserJoinAccount
+	from user
+	join account_user on "user".id  = account_user.user_id
+	join account      on account.id = account_user.account_id
+`
+		expected := `
+generate UserJoinAccount
+    from "user"
+    join "account_user" on "user".id  = account_user.user_id
+    join "account" on account.id = account_user.account_id;
+`[1:]
+		file, err := ParseString("test", src)
+		assertNoError(t, err)
+		assertEqual(t, file.String(), expected)
+		assertEqual(t, len(file.Declarations[0].Joins), 3)
+	})
+}
+
 func assertNoError(t *testing.T, err error) {
 	if err != nil {
 		t.Errorf("Expect no error. Got: %v", err)
@@ -123,6 +180,6 @@ func assertErrorEqual(t *testing.T, err error, expect string) {
 
 func assertEqual(t *testing.T, actual, expect interface{}) {
 	if !reflect.DeepEqual(actual, expect) {
-		t.Errorf("Expect `%v`. Got: %v", expect, actual)
+		t.Errorf("\nExpect:\n`%v`\nGot:\n`%v`", expect, actual)
 	}
 }
