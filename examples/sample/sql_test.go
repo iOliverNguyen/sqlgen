@@ -658,7 +658,7 @@ func query(db *sq.Database, sql string, args ...interface{}) ([]interface{}, err
 func shouldQuery(db *sq.Database, sql string, args ...interface{}) []interface{} {
 	s, err := query(db, sql, args...)
 	if err != nil {
-		log.Panicf("%v: sql=`%v` args=%#v", err, sql, args)
+		log.Panicf("%v: sql=`%v` args=%#v", err, sql, interface{}(args))
 	}
 	return s
 }
