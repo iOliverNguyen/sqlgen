@@ -2,14 +2,12 @@ package test
 
 import (
 	"time"
-
-	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 /*
 sqlgen:
   generate User
-  //generate UserSubset from "user" (User)
+  generate UserSubset from "user"
   generate UserInfo
   generate UserUnion
     from "user"      as u
@@ -23,8 +21,10 @@ sqlgen:
   generate UserInline
 */
 
-//go:generate ../../scripts/goderive.sh
-var _ = sqlgenUser(&User{})
+//go:generate bash -c "rm sql.gen.go || true"
+//go:generate go install github.com/ng-vu/sqlgen/cmd/sqlgen
+//go:generate $GOPATH/bin/sqlgen -o sql.gen.go
+//go:generate goimports -w sql.gen.go
 
 type User struct {
 	ID        string
@@ -45,11 +45,6 @@ type User struct {
 	PString  *string
 }
 
-// Generate a struct (B) represents part of the given table (A).
-//
-//    sqlgen...(B, A)
-var _ = sqlgenUserSubset(&UserSubset{}, &User{})
-
 type UserSubset struct {
 	ID string
 
@@ -65,8 +60,6 @@ type UserSubset struct {
 	PInt64   *int64
 	PString  *string
 }
-
-var _ = sqlgenUserInfo(&UserInfo{})
 
 type UserInfo struct {
 	UserID   string
@@ -85,32 +78,16 @@ type UserInfo struct {
 	PString  *string
 }
 
-// Generate a struct (U) which represents join between table (A) and (B)
-//
-//    sqlgen...(U, A, join, B, condition)
-var _ = sqlgenUserUnion(
-	&UserUnion{}, &User{}, sq.AS("u"),
-	sq.FULL_JOIN, &UserInfo{}, sq.AS("ui"), `u.id = ui.user_id`,
-)
-
 type UserUnion struct {
 	User     *User
 	UserInfo *UserInfo
 }
-
-var _ = sqlgenUserUnionMore(
-	&UserUnionMore{}, &User{}, sq.AS("u"),
-	sq.FULL_JOIN, &UserInfo{}, sq.AS("ui"), `u.id = ui.user_id`,
-	sq.RIGHT_JOIN, &UserSubset{}, sq.AS("us"), `u.id = us.id`,
-)
 
 type UserUnionMore struct {
 	User       *User
 	UserInfo   *UserInfo
 	UserSubset *UserSubset
 }
-
-var _ = sqlgenComplexInfo(&ComplexInfo{})
 
 type ComplexInfo struct {
 	ID string
@@ -173,15 +150,11 @@ type AliasPFloat64 *float64
 
 type AliasPTime *time.Time
 
-var _ = sqlgenUserTag(&UserTag{})
-
 type UserTag struct {
 	Skip   string  `sq:"-" json:"skip"`
 	Inline Address `sq:"inline" json:"address"`
 	Rename string  `sq:"'new_name'" json:"json_name"`
 }
-
-var _ = sqlgenUserInline(&UserInline{})
 
 type UserInline struct {
 	Inline    Address  `sq:"inline"`

@@ -148,9 +148,9 @@ func (g *Gen) Add(name string, typs []types.Type) error {
 	if len(typs) == 0 {
 		return fmt.Errorf("%s must have at least one argument", name)
 	}
-	sTyp, ok := pointerToStruct(typs[0])
+	sTyp, ok := getStructType(typs[0])
 	if !ok {
-		return fmt.Errorf("Type must be pointer to struct (got %v)", typs[0].String())
+		return fmt.Errorf("Type must be struct (got %v)", typs[0].String())
 	}
 
 	cols, err := parseColumnsFromType(g, nil, typs[0], sTyp)
@@ -199,9 +199,9 @@ func (g *Gen) Add(name string, typs []types.Type) error {
 	}
 
 	if def.base != nil {
-		def.tableName = ToSnake(g.TypeString(def.base)[1:])
+		def.tableName = ToSnake(g.bareTypeName(def.base))
 	} else {
-		def.tableName = ToSnake(g.TypeString(typ)[1:])
+		def.tableName = ToSnake(g.bareTypeName(typ))
 	}
 	g.mapType[typs[0].String()] = def
 	return nil
@@ -255,10 +255,13 @@ func (g *Gen) GenQueryFor(typ types.Type) error {
 	return g.generate(typ)
 }
 
-func (g *Gen) generate(typ types.Type) error {
+func (g *Gen) generate(__typ types.Type) error {
 	p := g
-	def := g.mapType[typ.String()]
-	pStr := g.TypeString(typ)
+	def := g.mapType[__typ.String()]
+	pStr := g.TypeString(__typ)
+	if pStr[0] != '*' {
+		pStr = "*" + pStr
+	}
 	Str := pStr[1:]
 	Strs := ToPlural(Str)
 	tableName := def.tableName
@@ -275,10 +278,10 @@ func (g *Gen) generate(typ types.Type) error {
 	_JoinAs := fmt.Sprintf("__sql%v_JoinAs", Str)
 
 	_ListColsForType := func(typ types.Type) string {
-		return fmt.Sprintf("__sql%v_ListCols", g.TypeString(typ)[1:])
+		return fmt.Sprintf("__sql%v_ListCols", g.bareTypeName(typ))
 	}
 	_TableForType := func(typ types.Type) string {
-		return fmt.Sprintf("__sql%v_Table", g.TypeString(typ)[1:])
+		return fmt.Sprintf("__sql%v_Table", g.bareTypeName(typ))
 	}
 
 	{
@@ -584,11 +587,11 @@ func (g *Gen) generate(typ types.Type) error {
 		p.P("")
 		p.P("func (m %v) SQLScanArgs(args []interface{}) []interface{} {", pStr)
 		p.In()
-		baseTypStr := g.TypeString(def.base)[1:]
+		baseTypStr := g.bareTypeName(def.base)
 		p.P("m.%v = new(%v)", baseTypStr, baseTypStr)
-		p.P("args = m.%v.SQLScanArgs(args)", g.TypeString(def.base)[1:])
+		p.P("args = m.%v.SQLScanArgs(args)", g.bareTypeName(def.base))
 		for _, join := range def.joins {
-			joinTypStr := g.TypeString(join.joinTyp)[1:]
+			joinTypStr := g.bareTypeName(join.joinTyp)
 			p.P("m.%v = new(%v)", joinTypStr, joinTypStr)
 			p.P("args = m.%v.SQLScanArgs(args)", joinTypStr)
 		}
@@ -864,7 +867,7 @@ func (g *Gen) tableName(def *typeDef) string {
 	if def.base != nil {
 		typ = def.base
 	}
-	name := g.TypeString(typ)[1:]
+	name := g.bareTypeName(typ)
 	return ToSnake(name)
 }
 
@@ -917,7 +920,7 @@ func (g *Gen) parseJoinLine(typs []types.Type) (*joinDef, error) {
 	}
 
 	base := typs[1]
-	if _, ok := pointerToStruct(base); !ok {
+	if _, ok := getStructType(base); !ok {
 		return nil, fmt.Errorf(
 			"Invalid base type for join: must be pointer to struct (got %v)",
 			g.TypeString(base))
@@ -941,12 +944,12 @@ func (g *Gen) parseJoinLine(typs []types.Type) (*joinDef, error) {
 	}, nil
 }
 
-func pointerToStruct(typ types.Type) (*types.Struct, bool) {
+func getStructType(typ types.Type) (*types.Struct, bool) {
 	pt, ok := typ.Underlying().(*types.Pointer)
-	if !ok {
-		return nil, false
+	if ok {
+		typ = pt.Elem()
 	}
-	st, ok := pt.Elem().Underlying().(*types.Struct)
+	st, ok := typ.Underlying().(*types.Struct)
 	return st, ok
 }
 

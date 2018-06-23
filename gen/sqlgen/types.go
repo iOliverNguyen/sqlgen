@@ -1,6 +1,8 @@
 package sqlgen
 
-import "go/types"
+import (
+	"go/types"
+)
 
 type timeLevel int
 
@@ -311,4 +313,12 @@ func genericType(typ types.Type, typStr string) typeGeneric {
 		return typeStruct
 	}
 	return typeInvalid
+}
+
+func (g *Gen) bareTypeName(typ types.Type) string {
+	s := g.TypeString(typ)
+	if s[0] == '*' {
+		return s[1:]
+	}
+	return s
 }
