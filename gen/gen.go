@@ -2,8 +2,6 @@ package gface
 
 import (
 	"go/types"
-
-	"github.com/awalterschulze/goderive/derive"
 )
 
 type Goderive interface {
@@ -34,17 +32,4 @@ type JoinDef struct {
 	Table  string
 	Alias  string
 	OnCond string
-}
-
-type GoderiveAdapter struct {
-	derive.TypesMap
-	derive.Printer
-}
-
-func NewGoderiveAdapter(tm derive.TypesMap, p derive.Printer) Interface {
-	return &GoderiveAdapter{tm, p}
-}
-
-func (g *GoderiveAdapter) NewImport(name, path string) func() string {
-	return g.Printer.NewImport(name, path)
 }
