@@ -1,4 +1,4 @@
-package gosrc
+package gocmt
 
 import (
 	"strings"

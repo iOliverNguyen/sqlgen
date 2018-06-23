@@ -35,13 +35,13 @@ package dsl
 top:
     decls
     {
-        result = &File{
+        result = &RootDeclaration{
             Declarations: $1,
         }
     }
 |   decls ';'
     {
-        result = &File{
+        result = &RootDeclaration{
             Declarations: $1,
         }
     }

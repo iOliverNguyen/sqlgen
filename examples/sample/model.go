@@ -6,6 +6,23 @@ import (
 	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
+/*
+sqlgen:
+  generate User
+  //generate UserSubset from "user" (User)
+  generate UserInfo
+  generate UserUnion
+    from "user"      as u
+    join "user_info" as ui on u.ui = ui.user_id
+  generate UserUnionMore
+    from "user"        as u
+    join "user_info"   as ui on u.ui = ui.user_id
+    join "user_subset" as us on u.ui = us.ui
+  generate ComplexInfo
+  generate UserTag
+  generate UserInline
+*/
+
 //go:generate ../../scripts/goderive.sh
 var _ = sqlgenUser(&User{})
 
