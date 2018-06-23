@@ -1,17 +1,18 @@
 // This is a package
 //
 // sqlgen: package
+//
 // this line is ignored
 package testpkg1
 
-// sqlgen:
-//   Block
+// sqlgen: Span
+//   comment
 //
 
 // sqlgen: A
 type A int
 
-// sqlgen: B comment
+// sqlgen: B
 type (
 	B int
 )
@@ -22,9 +23,8 @@ type (
 	C int
 )
 
-// sqlgen: Floating 1
+// sqlgen: Standalone 1
 
-// sqlgen: Floating 2
 type (
 	// sqlgen: D
 	D int
@@ -35,10 +35,23 @@ type (
 	E int
 )
 
-// This comment is also ignored
+// This comment is ignored
+type (
+	D2 int
+
+	// sqlgen: E2
+	E2 int
+)
+
+// F and G are ignored in result list
 type F int
 
 type G int
+
+// H is block comment
+// sqlgen:
+//   H block
+type H int
 
 /*sqlgen: Multi-line 1*/
 
@@ -48,8 +61,8 @@ type G int
 */
 
 func main() {
-	// Z is counted as floating
+	// Z is counted as standalone
 
-	// sqlgen: Z
+	// sqlgen: Standalone 2
 	type Z int
 }

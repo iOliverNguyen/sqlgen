@@ -30,6 +30,7 @@ var yyToknames = [...]string{
 	"$end",
 	"error",
 	"$unk",
+	"'.'",
 	"';'",
 	"'('",
 	"')'",
@@ -49,7 +50,7 @@ const yyEofCode = 1
 const yyErrCode = 2
 const yyInitialStackSize = 16
 
-//line y.y:198
+//line y.y:215
 
 //line yacctab:1
 var yyExca = [...]int{
@@ -60,56 +61,58 @@ var yyExca = [...]int{
 
 const yyPrivate = 57344
 
-const yyLast = 43
+const yyLast = 47
 
 var yyAct = [...]int{
 
-	33, 32, 6, 28, 15, 18, 23, 34, 41, 7,
-	21, 22, 19, 16, 20, 24, 40, 25, 21, 22,
-	27, 13, 4, 26, 38, 29, 10, 5, 3, 30,
-	1, 31, 35, 36, 8, 37, 39, 14, 9, 11,
-	17, 2, 12,
+	21, 34, 6, 15, 20, 18, 24, 29, 36, 44,
+	7, 22, 23, 22, 23, 25, 16, 26, 43, 19,
+	13, 4, 41, 27, 28, 30, 10, 5, 31, 32,
+	35, 1, 38, 37, 35, 39, 33, 40, 3, 42,
+	14, 9, 11, 17, 8, 2, 12,
 }
 var yyPact = [...]int{
 
-	15, -1000, 23, -1000, -3, 15, 21, -1000, -1000, 13,
-	1, -1000, 2, 6, 0, -1000, 6, 2, -1000, 6,
-	20, -1000, -1000, -1000, 1, -1000, -1000, 20, -2, -3,
-	-1000, -2, -1000, -1000, 6, 18, 5, -1000, -1000, -1000,
-	-6, -1000,
+	13, -1000, 22, -1000, -3, 13, 20, -1000, -1000, 11,
+	3, -1000, 8, 0, -1, -1000, 0, 8, -1000, 0,
+	19, 24, -1000, -1000, -1000, 3, -1000, -1000, 19, -2,
+	-3, 0, -1000, -2, -1000, -1000, 0, 15, -1000, 6,
+	-1000, -1000, -1000, -6, -1000,
 }
 var yyPgo = [...]int{
 
-	0, 42, 3, 28, 41, 5, 40, 39, 4, 38,
-	37, 0, 1, 2, 36, 30,
+	0, 46, 4, 7, 38, 45, 5, 43, 42, 3,
+	41, 40, 0, 1, 2, 39, 31,
 }
 var yyR1 = [...]int{
 
-	0, 15, 15, 4, 4, 3, 9, 9, 10, 10,
-	10, 8, 7, 7, 7, 1, 12, 12, 12, 13,
-	13, 11, 11, 6, 6, 5, 2, 2, 14, 14,
+	0, 16, 16, 5, 5, 4, 10, 10, 11, 11,
+	11, 9, 8, 8, 8, 1, 2, 2, 13, 13,
+	13, 14, 14, 12, 12, 7, 7, 6, 3, 3,
+	15, 15,
 }
 var yyR2 = [...]int{
 
 	0, 1, 2, 1, 3, 4, 0, 3, 0, 1,
-	3, 2, 0, 1, 2, 4, 0, 1, 2, 0,
-	1, 1, 1, 1, 2, 5, 0, 3, 0, 2,
+	3, 2, 0, 1, 2, 4, 1, 3, 0, 1,
+	2, 0, 1, 1, 1, 1, 2, 5, 0, 3,
+	0, 2,
 }
 var yyChk = [...]int{
 
-	-1000, -15, -4, -3, 7, 4, -13, 12, -3, -9,
-	5, -7, -1, 8, -10, -8, 12, -6, -5, 10,
-	-11, 12, 13, 6, 15, -11, -5, -11, -2, 5,
-	-8, -2, -12, -11, 9, -13, -12, -11, 6, -14,
-	11, 14,
+	-1000, -16, -5, -4, 8, 5, -14, 13, -4, -10,
+	6, -8, -1, 9, -11, -9, 13, -7, -6, 11,
+	-2, -12, 13, 14, 7, 16, -12, -6, -2, -3,
+	6, 4, -9, -3, -13, -12, 10, -14, -12, -13,
+	-12, 7, -15, 12, 15,
 }
 var yyDef = [...]int{
 
-	0, -2, 1, 3, 19, 2, 6, 20, 4, 12,
-	8, 5, 13, 0, 0, 9, 0, 14, 23, 0,
-	26, 21, 22, 7, 0, 11, 24, 26, 16, 19,
-	10, 16, 15, 17, 0, 0, 28, 18, 27, 25,
-	0, 29,
+	0, -2, 1, 3, 21, 2, 6, 22, 4, 12,
+	8, 5, 13, 0, 0, 9, 0, 14, 25, 0,
+	28, 16, 23, 24, 7, 0, 11, 26, 28, 18,
+	21, 0, 10, 18, 15, 19, 0, 0, 17, 30,
+	20, 29, 27, 0, 31,
 }
 var yyTok1 = [...]int{
 
@@ -117,12 +120,12 @@ var yyTok1 = [...]int{
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-	5, 6, 3, 3, 15, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+	6, 7, 3, 3, 16, 3, 4, 3, 3, 3,
+	3, 3, 3, 3, 3, 3, 3, 3, 3, 5,
 }
 var yyTok2 = [...]int{
 
-	2, 3, 7, 8, 9, 10, 11, 12, 13, 14,
+	2, 3, 8, 9, 10, 11, 12, 13, 14, 15,
 }
 var yyTok3 = [...]int{
 	0,
@@ -573,75 +576,94 @@ yydefault:
 		//line y.y:127
 		{
 			yyVAL.dc = DeclCommon{
-				TableName:  yyDollar[2].str,
+				SchemaName: yyDollar[2].dc.SchemaName,
+				TableName:  yyDollar[2].dc.TableName,
 				StructName: yyDollar[3].dc.StructName,
 				Alias:      yyDollar[4].str,
 			}
 		}
 	case 16:
+		yyDollar = yyS[yypt-1 : yypt+1]
+		//line y.y:138
+		{
+			yyVAL.dc = DeclCommon{
+				TableName: yyDollar[1].str,
+			}
+		}
+	case 17:
+		yyDollar = yyS[yypt-3 : yypt+1]
+		//line y.y:144
+		{
+			yyVAL.dc = DeclCommon{
+				SchemaName: yyDollar[1].str,
+				TableName:  yyDollar[3].str,
+			}
+		}
+	case 18:
 		yyDollar = yyS[yypt-0 : yypt+1]
-		//line y.y:137
+		//line y.y:153
 		{
 			yyVAL.str = ""
 		}
-	case 18:
+	case 20:
 		yyDollar = yyS[yypt-2 : yypt+1]
-		//line y.y:142
+		//line y.y:158
 		{
 			yyVAL.str = yyDollar[2].str
 		}
-	case 19:
+	case 21:
 		yyDollar = yyS[yypt-0 : yypt+1]
-		//line y.y:148
+		//line y.y:164
 		{
 			yyVAL.str = ""
 		}
-	case 23:
+	case 25:
 		yyDollar = yyS[yypt-1 : yypt+1]
-		//line y.y:157
+		//line y.y:173
 		{
 			yyVAL.jns = []*Join{yyDollar[1].jn}
 		}
-	case 24:
+	case 26:
 		yyDollar = yyS[yypt-2 : yypt+1]
-		//line y.y:161
+		//line y.y:177
 		{
 			yyVAL.jns = append(yyDollar[1].jns, yyDollar[2].jn)
 		}
-	case 25:
+	case 27:
 		yyDollar = yyS[yypt-5 : yypt+1]
-		//line y.y:167
+		//line y.y:183
 		{
 			yyVAL.jn = &Join{
 				DeclCommon: DeclCommon{
-					TableName:  yyDollar[2].str,
+					SchemaName: yyDollar[2].dc.SchemaName,
+					TableName:  yyDollar[2].dc.TableName,
 					StructName: yyDollar[3].dc.StructName,
 					Alias:      yyDollar[4].str,
 				},
 				OnCond: yyDollar[5].str,
 			}
 		}
-	case 26:
+	case 28:
 		yyDollar = yyS[yypt-0 : yypt+1]
-		//line y.y:180
+		//line y.y:197
 		{
 			yyVAL.dc = DeclCommon{}
 		}
-	case 27:
+	case 29:
 		yyDollar = yyS[yypt-3 : yypt+1]
-		//line y.y:184
+		//line y.y:201
 		{
 			yyVAL.dc = DeclCommon{StructName: yyDollar[2].str}
 		}
-	case 28:
+	case 30:
 		yyDollar = yyS[yypt-0 : yypt+1]
-		//line y.y:190
+		//line y.y:207
 		{
 			yyVAL.str = ""
 		}
-	case 29:
+	case 31:
 		yyDollar = yyS[yypt-2 : yypt+1]
-		//line y.y:194
+		//line y.y:211
 		{
 			yyVAL.str = yyDollar[2].str
 		}

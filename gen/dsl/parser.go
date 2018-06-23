@@ -4,7 +4,6 @@
 package dsl
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -25,7 +24,7 @@ func (f *File) String() string {
 type Declarations []*Declaration
 
 func (ds Declarations) String() string {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	for _, d := range ds {
 		fmt.Fprintf(&buf, "%v;\n", d)
 	}
@@ -34,8 +33,16 @@ func (ds Declarations) String() string {
 
 type DeclCommon struct {
 	StructName string
+	SchemaName string
 	TableName  string
 	Alias      string
+}
+
+func (d DeclCommon) TableFullName() string {
+	if d.SchemaName != "" {
+		return d.SchemaName + ".`" + d.TableName + "`"
+	}
+	return `"` + d.TableName + `"`
 }
 
 type Declaration struct {
@@ -45,7 +52,7 @@ type Declaration struct {
 }
 
 func (d *Declaration) String() string {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	buf.WriteString("generate ")
 	writeIdent(&buf, d.StructName)
 	if len(d.Options) > 0 {
@@ -55,7 +62,7 @@ func (d *Declaration) String() string {
 	}
 	if len(d.Joins) == 0 {
 		buf.WriteString(" from ")
-		writeName(&buf, d.TableName)
+		writeTableName(&buf, d.SchemaName, d.TableName)
 	} else {
 		buf.WriteString("\n    from ")
 		buf.WriteString(d.Joins.String())
@@ -71,7 +78,7 @@ func (d *Declaration) String() string {
 type Joins []*Join
 
 func (jns Joins) String() string {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	for i, jn := range jns {
 		if i > 0 {
 			buf.WriteString("\n    join ")
@@ -87,8 +94,8 @@ type Join struct {
 }
 
 func (jn *Join) String() string {
-	var buf bytes.Buffer
-	writeName(&buf, jn.TableName)
+	var buf strings.Builder
+	writeTableName(&buf, jn.SchemaName, jn.TableName)
 	if jn.StructName != "" {
 		buf.WriteString(" (")
 		buf.WriteString(jn.StructName)
@@ -112,7 +119,7 @@ func (opts Options) String() string {
 		return ""
 	}
 
-	var buf bytes.Buffer
+	var buf strings.Builder
 	for i, opt := range opts {
 		if i > 0 {
 			buf.WriteString(", ")
@@ -131,21 +138,31 @@ func (opt Option) String() string {
 	return opt.Name + " " + opt.Value
 }
 
-func writeName(w *bytes.Buffer, s string) {
-	if s == "" {
+func writeTableName(w *strings.Builder, schema, table string) {
+	if schema != "" {
+		b, _ := json.Marshal(schema)
+		w.Write(b)
+		w.WriteString(".")
+	}
+	if table == "" {
 		w.WriteString(`"{}"`)
 	} else {
-		b, _ := json.Marshal(s)
+		b, _ := json.Marshal(table)
 		w.Write(b)
 	}
 }
 
-func writeIdent(w *bytes.Buffer, s string) {
+func writeIdent(w *strings.Builder, s string) {
 	if s == "" {
 		w.WriteString(`{}`)
 	} else {
 		w.WriteString(s)
 	}
+}
+
+func quoteName(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 type lexer struct {
@@ -174,6 +191,11 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 	// lex JCOND
 	if l.on {
 		l.on = false
+		if text[0] == '`' {
+			yylval.str = text[1 : len(text)-1]
+			return JCOND
+		}
+
 		start := l.Position.Offset
 		for text != ";" && text != "generate" && text != "join" {
 			if tok := l.Scan(); tok == scanner.EOF {
@@ -189,13 +211,13 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 			yylval.str = cond
 			return JCOND
 		}
-		// continue
+		// else continue
 	}
 
 	switch text {
 	case "":
 		return 0
-	case ";", "(", ")":
+	case ".", ";", "(", ")":
 		return int(text[0])
 	case "generate":
 		if l.last != 0 && l.last != ';' {
@@ -213,8 +235,16 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 		l.on = true
 		return ON
 	default:
-		if text[0] == '"' || text[0] == '`' {
+		if text[0] == '`' {
 			yylval.str = text[1 : len(text)-1]
+			return STRING
+		}
+		if text[0] == '"' {
+			var v string
+			if err := json.Unmarshal([]byte(text), &v); err != nil {
+				return 0
+			}
+			yylval.str = v
 			return STRING
 		}
 		yylval.str = text

@@ -1,7 +1,6 @@
 language: go
 go_import_path: github.com/ng-vu/sqlgen
 go:
-    - 1.9.x
     - 1.10.x
     - tip
 sudo: required

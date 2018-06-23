@@ -1,54 +1,50 @@
 package gosrc
 
 import (
-	"errors"
 	"strings"
 	"unicode"
 )
 
-const (
-	CommentPrefix = "sqlgen:"
+const CommentPrefix = "sqlgen:"
 
-	modeBlock = 1
-	modeLine  = 2
-)
-
-var (
-	ErrComment1 = errors.New("sqlgen: Must not mix block declaration")
-	ErrComment2 = errors.New("sqlgen: Must not mix block declaration and line declaration")
-)
-
-func ParseComment(lines []string) (res []string, _ error) {
-	mode := 0
+func ParseComment(lines []string) (groups [][]string, _ error) {
+	var flag bool
+	var group []string
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		switch {
 		case line == "":
-			// skip
+			if flag {
+				groups = append(groups, group)
+				group = nil
+			}
+			flag = false
 
 		case line == CommentPrefix:
-			switch mode {
-			case modeBlock:
-				return nil, ErrComment1
-			case modeLine:
-				return nil, ErrComment2
+			if flag {
+				groups = append(groups, group)
+				group = nil
 			}
-			mode = modeBlock
+			flag = true
 
 		case strings.HasPrefix(line, CommentPrefix):
-			if mode == modeBlock {
-				return nil, ErrComment2
+			if flag {
+				groups = append(groups, group)
+				group = nil
 			}
-			mode = modeLine
+			flag = true
 			line = line[len(CommentPrefix):]
 			line = strings.TrimLeftFunc(line, unicode.IsSpace)
-			res = append(res, line)
+			group = append(group, line)
 
 		default:
-			if mode == modeBlock {
-				res = append(res, line)
+			if flag {
+				group = append(group, line)
 			}
 		}
 	}
-	return res, nil
+	if flag {
+		groups = append(groups, group)
+	}
+	return groups, nil
 }

@@ -11,16 +11,38 @@ func split(src string) []string {
 	return strings.Split(src, "\n")
 }
 
-func join(lines []string) string {
-	return strings.Join(lines, "|")
+func join(groups [][]string) string {
+	var b strings.Builder
+	b.WriteString("[")
+	for _, group := range groups {
+		b.WriteString("[")
+		for j, line := range group {
+			if j > 0 {
+				b.WriteString("・")
+			}
+			b.WriteString(line)
+		}
+		b.WriteString("]")
+	}
+	b.WriteString("]")
+	return b.String()
 }
 
 func TestParseComment(t *testing.T) {
+	t.Run("Empty comment", func(t *testing.T) {
+		cmts := split("sqlgen:")
+		groups, err := ParseComment(cmts)
+		AssertNoError(t, err)
+		AssertEqual(t, len(groups), 1)
+		AssertEqual(t, len(groups[0]), 0)
+	})
+
 	t.Run("Single line comment", func(t *testing.T) {
 		cmts := split("sqlgen: Hello")
-		output, err := ParseComment(cmts)
+		groups, err := ParseComment(cmts)
 		AssertNoError(t, err)
-		AssertEqual(t, join(output), "Hello")
+		AssertEqual(t, len(groups), 1)
+		AssertEqual(t, join(groups), "[[Hello]]")
 	})
 
 	t.Run("Multiple line comment", func(t *testing.T) {
@@ -28,55 +50,60 @@ func TestParseComment(t *testing.T) {
 This is a comment about sqlgen:
   sqlgen:Hello
 sqlgen: World
+  from   sqlgen
+
 Another comment about sqlgen: This line should not be included
 sqlgen:!`)
-		output, err := ParseComment(cmts)
+		groups, err := ParseComment(cmts)
 		AssertNoError(t, err)
-		AssertEqual(t, join(output), "Hello|World|!")
-	})
-
-	t.Run("Block comment", func(t *testing.T) {
-		m := split(`
-sqlgen:
-  Hello
-    World
-!`)
-		output, err := ParseComment(m)
-		AssertNoError(t, err)
-		AssertEqual(t, join(output), "Hello|World|!")
+		AssertEqual(t, join(groups), "[[Hello][World・from   sqlgen][!]]")
 	})
 
 	t.Run("No comment", func(t *testing.T) {
 		cmts := split(`
 No comment about sqlgen:
 `)
-		output, err := ParseComment(cmts)
+		groups, err := ParseComment(cmts)
 		AssertNoError(t, err)
-		AssertEqual(t, join(output), "")
+		AssertEqual(t, join(groups), "[]")
 	})
 
-	t.Run("Error: Mix block", func(t *testing.T) {
+	t.Run("First line empty", func(t *testing.T) {
+		m := split(`
+sqlgen:
+  Hello
+    World
+!`)
+		groups, err := ParseComment(m)
+		AssertNoError(t, err)
+		AssertEqual(t, join(groups), "[[Hello・World・!]]")
+	})
+
+	t.Run("Mix first line empty 1", func(t *testing.T) {
 		cmts := split(`sqlgen:
 Hello
 sqlgen:
 World`)
-		_, err := ParseComment(cmts)
-		AssertErrorEqual(t, err, ErrComment1.Error())
+		groups, err := ParseComment(cmts)
+		AssertNoError(t, err)
+		AssertEqual(t, join(groups), "[[Hello][World]]")
 	})
 
-	t.Run("Error: Mix block and line", func(t *testing.T) {
+	t.Run("Mix first line empty 2", func(t *testing.T) {
 		cmts := split(`sqlgen:Hello
 sqlgen:
 World`)
-		_, err := ParseComment(cmts)
-		AssertErrorEqual(t, err, ErrComment2.Error())
+		groups, err := ParseComment(cmts)
+		AssertNoError(t, err)
+		AssertEqual(t, join(groups), "[[Hello][World]]")
 	})
 
-	t.Run("Error: Mix block and line 2", func(t *testing.T) {
+	t.Run("Mix first line empty 3", func(t *testing.T) {
 		cmts := split(`sqlgen:
 Hello
 sqlgen:World`)
-		_, err := ParseComment(cmts)
-		AssertErrorEqual(t, err, ErrComment2.Error())
+		groups, err := ParseComment(cmts)
+		AssertNoError(t, err)
+		AssertEqual(t, join(groups), "[[Hello][World]]")
 	})
 }

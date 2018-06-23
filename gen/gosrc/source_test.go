@@ -1,72 +1,89 @@
 package gosrc
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
-
-	"fmt"
-
-	"bytes"
 
 	. "github.com/ng-vu/sqlgen/mock"
 )
 
-var testpkg string
+var pkg string
 
 func init() {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		panic("No GOPATH")
 	}
-	testpkg = filepath.Join(gopath, "src/github.com/ng-vu/sqlgen/gen/gosrc/testpkg")
+	pkg = filepath.Join(gopath, "src/github.com/ng-vu/sqlgen/gen/gosrc")
 }
 
 func TestParsePkg1(t *testing.T) {
-	res, err := ParseDir(testpkg + "1")
+	res, err := ParseDir(filepath.Join(pkg, "testpkg1"))
 	AssertNoError(t, err)
 
 	{
-		expected := `
-package
-Block
-Floating 1
-Floating 2
-Multi-line 1
-Multi-line 2.1
-Multi-line 2.2
-Z
-`[1:]
-		AssertEqual(t, res.Block, expected)
+		expected := `[[package][Span・comment][Standalone 1][Multi-line 1][Multi-line 2.1・Multi-line 2.2][Standalone 2]]`
+		AssertEqual(t, join(res.Block), expected)
 	}
 	{
-		var b bytes.Buffer
+		var ss []string
 		for _, typ := range res.Types {
-			fmt.Fprintf(&b, "%v-%v\n", typ.Type.Name.Name, typ.Comment)
+			s := fmt.Sprintf("%v-%v\n", typ.Type.Name.Name, typ.Comment)
+			ss = append(ss, s)
 		}
+		sort.Strings(ss)
 		expected := `
-A2-A2
-A-A
-B-B comment
-C-C
-D-D
-E-E
+A-[A]
+A2-[A2]
+B-[B]
+C-[C]
+D-[D]
+E-[E]
+E2-[E2]
+H-[H block]
 `[1:]
-		AssertEqual(t, b.String(), expected)
+		AssertEqual(t, strings.Join(ss, ""), expected)
 	}
 }
 
-func TestParsePkg2(t *testing.T) {
-	// TODO
-	ParseDir(testpkg + "2")
-}
-
-func TestParsePkg3(t *testing.T) {
-	// TODO
-	ParseDir(testpkg + "3")
-}
-
-func TestParsePkg4(t *testing.T) {
-	_, err := ParseDir(testpkg + "4")
-	AssertErrorEqual(t, err, "Multiple declaration on type A")
+func TestParsePkgError(t *testing.T) {
+	tests := []struct {
+		pkg string
+		err string
+	}{
+		{
+			"e_testpkg_mix1",
+			"Must not mix declaration on type A and B",
+		},
+		{
+			"e_testpkg_mix2",
+			"Must not mix declaration on type A and B",
+		},
+		{
+			"e_testpkg_mix3",
+			"Must not mix declaration on type A and B",
+		},
+		{
+			"e_testpkg_mix4",
+			"Must not mix declaration on type A and B",
+		},
+		{
+			"e_testpkg_multi1",
+			"Multiple declarations on type A",
+		},
+		{
+			"e_testpkg_multi2",
+			"Multiple declarations on type A",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.pkg, func(t *testing.T) {
+			_, err := ParseDir(filepath.Join(pkg, tt.pkg))
+			AssertErrorEqual(t, err, tt.err)
+		})
+	}
 }
