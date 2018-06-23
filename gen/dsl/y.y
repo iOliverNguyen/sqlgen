@@ -15,7 +15,7 @@ package dsl
     str  string
 }
 
-%type  <dc>   from join_opts
+%type  <dc>   from table join_opts
 %type  <dec>  decl
 %type  <decs> decls
 %type  <jn>   join
@@ -24,7 +24,7 @@ package dsl
 %type  <opts> list_opts opts
 %type  <str>  name _as _ident _on
 
-%token ';' '(' ')'
+%token '.' ';' '(' ')'
 
 %token GENERATE FROM AS JOIN ON
 
@@ -123,12 +123,28 @@ from_joins:
     }
 
 from:
-    FROM name join_opts _as
+    FROM table join_opts _as
     {
         $$ = DeclCommon{
-            TableName: $2,
+            SchemaName: $2.SchemaName,
+            TableName:  $2.TableName,
             StructName: $3.StructName,
             Alias: $4,
+        }
+    }
+
+table:
+    name
+    {
+        $$ = DeclCommon{
+            TableName: $1,
+        }
+    }
+|   name '.' name
+    {
+        $$ = DeclCommon{
+            SchemaName: $1,
+            TableName:  $3,
         }
     }
 
@@ -163,11 +179,12 @@ joins:
     }
 
 join:
-    JOIN name join_opts _as _on
+    JOIN table join_opts _as _on
     {
         $$ = &Join{
             DeclCommon: DeclCommon{
-                TableName: $2,
+                SchemaName: $2.SchemaName,
+                TableName:  $2.TableName,
                 StructName: $3.StructName,
                 Alias: $4,
             },

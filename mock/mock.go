@@ -51,11 +51,13 @@ func AssertNoError(t *testing.T, err error) {
 func AssertErrorEqual(t *testing.T, err error, expect string) {
 	if err == nil || err.Error() != expect {
 		t.Errorf("Expect error equal to `%v`. Got: %v", expect, err)
+		t.FailNow()
 	}
 }
 
 func AssertEqual(t *testing.T, actual, expect interface{}) {
 	if !reflect.DeepEqual(actual, expect) {
 		t.Errorf("\nExpect:\n`%v`\nGot:\n`%v`", expect, actual)
+		t.FailNow()
 	}
 }

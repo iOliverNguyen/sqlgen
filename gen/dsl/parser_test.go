@@ -79,6 +79,40 @@ func TestDSL(t *testing.T) {
 		AssertEqual(t, file.String(), `generate Account from "account";`+"\n")
 	})
 
+	t.Run("Table name with escape characters", func(t *testing.T) {
+		src := `generate Account () from "schema\"account"`
+		file, err := ParseString("test", src)
+		AssertNoError(t, err)
+		AssertEqual(t, file.String(), `generate Account from "schema\"account";`+"\n")
+		AssertEqual(t, file.Declarations[0].TableName, `schema"account`)
+	})
+
+	t.Run("Table name with quotation", func(t *testing.T) {
+		src := `generate Account () from "schema.account"`
+		file, err := ParseString("test", src)
+		AssertNoError(t, err)
+		AssertEqual(t, file.String(), `generate Account from "schema.account";`+"\n")
+		AssertEqual(t, file.Declarations[0].TableName, `schema.account`)
+	})
+
+	t.Run("Table name with schema", func(t *testing.T) {
+		src := `generate Account () from schema.account`
+		file, err := ParseString("test", src)
+		AssertNoError(t, err)
+		AssertEqual(t, file.String(), `generate Account from "schema"."account";`+"\n")
+		AssertEqual(t, file.Declarations[0].SchemaName, `schema`)
+		AssertEqual(t, file.Declarations[0].TableName, `account`)
+	})
+
+	t.Run("Table name with schema and quotation", func(t *testing.T) {
+		src := `generate Account () from "schema"."account"`
+		file, err := ParseString("test", src)
+		AssertNoError(t, err)
+		AssertEqual(t, file.String(), `generate Account from "schema"."account";`+"\n")
+		AssertEqual(t, file.Declarations[0].SchemaName, `schema`)
+		AssertEqual(t, file.Declarations[0].TableName, `account`)
+	})
+
 	t.Run("Multiple declarations", func(t *testing.T) {
 		src := `
 generate Account from account;
@@ -145,12 +179,31 @@ generate UserJoinAccount
 		AssertEqual(t, len(file.Declarations[0].Joins), 3)
 	})
 
-	t.Run("Simplied, keep spacing and double quotes", func(t *testing.T) {
+	t.Run("Simplified, keep spacing and double quotes", func(t *testing.T) {
 		src := `
 generate UserJoinAccount
 	from user
 	join account_user on "user".id  = account_user.user_id
 	join account      on account.id = account_user.account_id
+`
+		expected := `
+generate UserJoinAccount
+    from "user"
+    join "account_user" on "user".id  = account_user.user_id
+    join "account" on account.id = account_user.account_id;
+`[1:]
+		file, err := ParseString("test", src)
+		AssertNoError(t, err)
+		AssertEqual(t, file.String(), expected)
+		AssertEqual(t, len(file.Declarations[0].Joins), 3)
+	})
+
+	t.Run("Simplied, use ` for on condition", func(t *testing.T) {
+		src := `
+generate UserJoinAccount
+	from user
+	join account_user on ` + "`" + `"user".id  = account_user.user_id` + "`" + `
+	join account      on ` + "`" + `account.id = account_user.account_id` + "`" + `
 `
 		expected := `
 generate UserJoinAccount

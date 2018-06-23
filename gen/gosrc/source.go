@@ -1,7 +1,7 @@
 package gosrc
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -11,13 +11,13 @@ import (
 )
 
 type PackageDeclaration struct {
-	Block string
+	Block [][]string
 	Types []TypeDeclaration
 }
 
 type TypeDeclaration struct {
 	Type    *ast.TypeSpec
-	Comment string
+	Comment []string
 }
 
 func ParseDir(path string) (*PackageDeclaration, error) {
@@ -27,58 +27,49 @@ func ParseDir(path string) (*PackageDeclaration, error) {
 		return nil, err
 	}
 
-	types, mapCmts := extractTypeSpecs(pkg)
+	types, mapCmts, err := extractTypeSpecs(pkg)
+	if err != nil {
+		return nil, err
+	}
 
 	// Extract types and comments
 	var res PackageDeclaration
 	for _, typ := range types {
-		if typ.Doc == nil {
-			continue
-		}
-		var lines []string
-		for _, c := range typ.Doc.List {
-			lines = append(lines, trimComment(c)...)
-		}
-		parsed, err := ParseComment(lines)
+		groups, err := parseCommandGroup(typ.Doc)
 		if err != nil {
 			return nil, err
 		}
-		switch len(parsed) {
+		switch len(groups) {
 		case 0:
-			// skip
+			// continue
 		case 1:
 			res.Types = append(res.Types, TypeDeclaration{
 				Type:    typ,
-				Comment: parsed[0],
+				Comment: groups[0],
 			})
 		default:
-			return nil, fmt.Errorf("Multiple declaration on type %v", typ.Name.Name)
+			return nil, errors.New("Multiple declarations on type " + typ.Name.Name)
 		}
 	}
 
 	// Extract floating comments
-	var b bytes.Buffer
+	var g [][]string
 	for _, file := range pkg.Files {
 		for _, cmt := range file.Comments {
 			if mapCmts[cmt] {
 				continue
 			}
-			var cmts []string
-			for _, c := range cmt.List {
-				cmts = append(cmts, trimComment(c)...)
-			}
-			parsed, err := ParseComment(cmts)
+			groups, err := parseCommandGroup(cmt)
 			if err != nil {
 				return nil, err
 			}
-			for _, line := range parsed {
-				b.WriteString(line)
-				b.WriteString("\n")
+			for _, group := range groups {
+				g = append(g, group)
 			}
 		}
 	}
 
-	res.Block = b.String()
+	res.Block = g
 	return &res, nil
 }
 
@@ -96,7 +87,7 @@ func parseDir(fset *token.FileSet, path string) (*ast.Package, error) {
 	panic("unreachable")
 }
 
-func extractTypeSpecs(pkg *ast.Package) ([]*ast.TypeSpec, map[*ast.CommentGroup]bool) {
+func extractTypeSpecs(pkg *ast.Package) ([]*ast.TypeSpec, map[*ast.CommentGroup]bool, error) {
 	cmts := make(map[*ast.CommentGroup]bool)
 	var types []*ast.TypeSpec
 	for _, file := range pkg.Files {
@@ -109,11 +100,13 @@ func extractTypeSpecs(pkg *ast.Package) ([]*ast.TypeSpec, map[*ast.CommentGroup]
 				continue
 			}
 
+			count := 0
 			for _, spec := range genDecl.Specs {
 				typeSpec, ok := spec.(*ast.TypeSpec)
 				if !ok {
 					continue
 				}
+				count++
 				types = append(types, typeSpec)
 				if typeSpec.Doc == nil && genDecl.Doc != nil {
 					typeSpec.Doc = genDecl.Doc
@@ -122,9 +115,31 @@ func extractTypeSpecs(pkg *ast.Package) ([]*ast.TypeSpec, map[*ast.CommentGroup]
 					cmts[typeSpec.Doc] = true
 				}
 			}
+			if count > 1 {
+				parsed, err := parseCommandGroup(genDecl.Doc)
+				if err != nil || len(parsed) > 0 {
+					var names []string
+					for _, spec := range types {
+						names = append(names, spec.Name.Name)
+					}
+					l := len(names) - 1
+					return nil, nil, errors.New("Must not mix declaration on type " + strings.Join(names[:l], ",") + " and " + names[l])
+				}
+			}
 		}
 	}
-	return types, cmts
+	return types, cmts, nil
+}
+
+func parseCommandGroup(cg *ast.CommentGroup) ([][]string, error) {
+	if cg == nil {
+		return nil, nil
+	}
+	var lines []string
+	for _, c := range cg.List {
+		lines = append(lines, trimComment(c)...)
+	}
+	return ParseComment(lines)
 }
 
 func fileFilter(file os.FileInfo) bool {
