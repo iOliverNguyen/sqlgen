@@ -5,19 +5,20 @@ package dsl
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"text/scanner"
 )
 
 // Variable to store the parsed result
-var result *File
+var result *RootDeclaration
 
-type File struct {
+type RootDeclaration struct {
 	Declarations Declarations
 }
 
-func (f *File) String() string {
+func (f *RootDeclaration) String() string {
 	return f.Declarations.String()
 }
 
@@ -36,6 +37,8 @@ type DeclCommon struct {
 	SchemaName string
 	TableName  string
 	Alias      string
+
+	OptPlural string
 }
 
 func (d DeclCommon) TableFullName() string {
@@ -73,6 +76,21 @@ func (d *Declaration) String() string {
 		buf.WriteString(`"`)
 	}
 	return buf.String()
+}
+
+func (d *Declaration) ParseOptions() error {
+	for _, opt := range d.Options {
+		switch opt.Name {
+		case "plural":
+			if d.OptPlural != "" {
+				return errors.New("Option `plural` already defined")
+			}
+			d.OptPlural = opt.Value
+		default:
+			return fmt.Errorf("Unknown option `%v`", opt.Name)
+		}
+	}
+	return nil
 }
 
 type Joins []*Join
@@ -256,7 +274,7 @@ func (l *lexer) Error(s string) {
 	l.err = fmt.Errorf("Error at %v: %v", l.Position, s)
 }
 
-func ParseString(filename, src string) (*File, error) {
+func ParseString(filename, src string) (*RootDeclaration, error) {
 	l := &lexer{src: src}
 	l.Init(strings.NewReader(src))
 	l.Filename = filename

@@ -1,4 +1,4 @@
-package gosrc
+package gocmt
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func init() {
 	if gopath == "" {
 		panic("No GOPATH")
 	}
-	pkg = filepath.Join(gopath, "src/github.com/ng-vu/sqlgen/gen/gosrc")
+	pkg = filepath.Join(gopath, "src/github.com/ng-vu/sqlgen/gen/gocmt")
 }
 
 func TestParsePkg1(t *testing.T) {

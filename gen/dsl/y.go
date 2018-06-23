@@ -472,7 +472,7 @@ yydefault:
 		yyDollar = yyS[yypt-1 : yypt+1]
 		//line y.y:37
 		{
-			result = &File{
+			result = &RootDeclaration{
 				Declarations: yyDollar[1].decs,
 			}
 		}
@@ -480,7 +480,7 @@ yydefault:
 		yyDollar = yyS[yypt-2 : yypt+1]
 		//line y.y:43
 		{
-			result = &File{
+			result = &RootDeclaration{
 				Declarations: yyDollar[1].decs,
 			}
 		}

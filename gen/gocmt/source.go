@@ -1,4 +1,4 @@
-package gosrc
+package gocmt
 
 import (
 	"errors"
@@ -13,6 +13,9 @@ import (
 type PackageDeclaration struct {
 	Block [][]string
 	Types []TypeDeclaration
+
+	FileSet *token.FileSet
+	Package *ast.Package
 }
 
 type TypeDeclaration struct {
@@ -33,7 +36,10 @@ func ParseDir(path string) (*PackageDeclaration, error) {
 	}
 
 	// Extract types and comments
-	var res PackageDeclaration
+	res := &PackageDeclaration{
+		FileSet: fset,
+		Package: pkg,
+	}
 	for _, typ := range types {
 		groups, err := parseCommandGroup(typ.Doc)
 		if err != nil {
@@ -70,7 +76,7 @@ func ParseDir(path string) (*PackageDeclaration, error) {
 	}
 
 	res.Block = g
-	return &res, nil
+	return res, nil
 }
 
 func parseDir(fset *token.FileSet, path string) (*ast.Package, error) {
