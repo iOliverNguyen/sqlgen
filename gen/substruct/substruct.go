@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ng-vu/sqlgen/core/strs"
 	ggen "github.com/ng-vu/sqlgen/gen"
+	"github.com/ng-vu/sqlgen/gen/strs"
 )
 
 func New(iface ggen.Interface) *Gen {

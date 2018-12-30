@@ -8,45 +8,78 @@ import (
 	"sync"
 	"time"
 
-	core "github.com/ng-vu/sqlgen/core"
+	"github.com/ng-vu/sqlgen/core"
 )
 
+// Error ...
 type Error = core.Error
 
 // Errors
 var (
-	ErrNoColumn     = core.ErrNoColumn
-	ErrNoAction     = core.ErrNoAction
-	ErrNoRows       = core.ErrNoRows
-	ErrNoRowsUpdate = core.ErrNoRowsUpdate
-	ErrNoRowsInsert = core.ErrNoRowsInsert
-	ErrNoRowsDelete = core.ErrNoRowsDelete
+	ErrNoColumn = core.ErrNoColumn
+	ErrNoRows   = core.ErrNoRows
 )
 
+// Option ...
 type Option interface {
 	SQLOption(*Database)
 }
 
+// OptionFunc ...
 type OptionFunc func(*Database)
 
+// SQLOption ...
 func (fn OptionFunc) SQLOption(db *Database) {
 	fn(db)
 }
 
+// QuestionMarker ...
 var QuestionMarker = OptionFunc(func(db *Database) {
-	db.marker = func() core.IState {
-		return questionMarker{}
-	}
+	db.marker = '?'
 })
 
+// DollarMarker ...
 var DollarMarker = OptionFunc(func(db *Database) {
-	db.marker = func() core.IState {
-		return &dollarMarker{}
-	}
+	db.marker = '$'
 })
 
+// DoubleQuoteEscape ...
+func DoubleQuoteEscape(db *Database) {
+	db.quote = '"'
+}
+
+// BacktickEscape ...
+func BacktickEscape(db *Database) {
+	db.quote = '`'
+}
+
+// UseArrayInsteadOfJSON ...
+func UseArrayInsteadOfJSON(db *Database, b bool) {
+	db.opts.UseArrayInsteadOfJSON = b
+}
+
+// PoolConfig connection pool config
+type PoolConfig struct {
+	MaxLifetime time.Duration // <= 0: connections are reused forever
+	MaxIdle     int           // default 2
+	MaxOpen     int           // default 0: unlimited
+}
+
+func (cfg PoolConfig) SQLOption(db *Database) {
+	// MaxOpen <= 0 means no limit on the number of open connections
+	db.db.SetMaxOpenConns(cfg.MaxOpen)
+
+	// MaxIdle <= 0 means no idle connections are retained
+	db.db.SetMaxIdleConns(cfg.MaxIdle)
+
+	// MaxLifetime <= 0 means connections are reused forever
+	db.db.SetConnMaxLifetime(cfg.MaxLifetime)
+}
+
+// Type ...
 type Type int
 
+// Constants ...
 const (
 	TypeExec     Type = 1
 	TypeQuery    Type = 2
@@ -58,24 +91,30 @@ const (
 	FlagBuild = 1 << 8
 )
 
+// Flags ...
 type Flags uint
 
+// IsTx ...
 func (f Flags) IsTx() bool {
 	return f&FlagTx > 0
 }
 
+// IsBuild ...
 func (f Flags) IsBuild() bool {
 	return f&FlagBuild > 0
 }
 
+// IsQuery ...
 func (f Flags) IsQuery() bool {
 	return f.Type() <= 3
 }
 
+// Type ...
 func (f Flags) Type() Type {
 	return Type(f) & (FlagTx - 1)
 }
 
+// MarshalJSON ...
 func (f Flags) MarshalJSON() ([]byte, error) {
 	b := make([]byte, 1, 4)
 	switch f.Type() {
@@ -101,8 +140,10 @@ func (f Flags) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
+// LogArgs ...
 type LogArgs []interface{}
 
+// ToSQLValues ...
 func (args LogArgs) ToSQLValues() (res []interface{}, _err error) {
 	res = make([]interface{}, len(args))
 	for i, arg := range args {
@@ -119,11 +160,13 @@ func (args LogArgs) ToSQLValues() (res []interface{}, _err error) {
 	return
 }
 
+// MarshalJSON ...
 func (args LogArgs) MarshalJSON() ([]byte, error) {
 	res, _ := args.ToSQLValues()
 	return json.Marshal(res)
 }
 
+// LogEntry ...
 type LogEntry struct {
 	Ctx       context.Context `json:"-"`
 	Query     string          `json:"query"`
@@ -139,33 +182,41 @@ type LogEntry struct {
 	TxQueries []*LogEntry `json:"tx_queries"`
 }
 
+// Logger ...
 type Logger func(*LogEntry)
 
+// SQLOption ...
 func (l Logger) SQLOption(db *Database) {
 	db.logger = l
 }
 
+// SetLogger ...
 func SetLogger(logger Logger) Option {
 	return logger
 }
 
+// DefaultLogger ...
 var DefaultLogger = Logger(func(entry *LogEntry) {
 	log.Print("query=`", entry.Query, "` arg=", entry.Args, " error=", entry.Error, " t=", entry.Duration)
 })
 
+// DynamicLogger ...
 type DynamicLogger struct {
 	logger Logger
 	m      sync.RWMutex
 }
 
+// NewDynamicLogger ...
 func NewDynamicLogger(logger Logger) *DynamicLogger {
 	return &DynamicLogger{logger: logger}
 }
 
+// SQLOption ...
 func (d *DynamicLogger) SQLOption(db *Database) {
 	db.logger = d.log
 }
 
+// SetLogger ...
 func (d *DynamicLogger) SetLogger(logger Logger) {
 	d.m.Lock()
 	d.logger = logger
@@ -182,12 +233,15 @@ func (d *DynamicLogger) log(entry *LogEntry) {
 	}
 }
 
+// ErrorMapper ...
 type ErrorMapper func(error, *LogEntry) error
 
+// SQLOption ...
 func (m ErrorMapper) SQLOption(db *Database) {
 	db.mapper = m
 }
 
+// SetErrorMapper ...
 func SetErrorMapper(mapper ErrorMapper) Option {
 	return mapper
 }

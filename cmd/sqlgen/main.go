@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ng-vu/sqlgen/core/strs"
 	"github.com/ng-vu/sqlgen/gen/dsl"
 	"github.com/ng-vu/sqlgen/gen/gocmt"
 	gen "github.com/ng-vu/sqlgen/gen/sqlgen"
+	"github.com/ng-vu/sqlgen/gen/strs"
 )
 
 var (

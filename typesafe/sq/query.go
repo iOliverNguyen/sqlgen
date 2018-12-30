@@ -5,175 +5,135 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
-	"sync"
 
-	core "github.com/ng-vu/sqlgen/core"
+	"github.com/ng-vu/sqlgen/core"
 )
 
-type Query struct {
-	db     dbInterface
-	ctx    context.Context
-	marker core.Marker
+// Query ...
+type queryImpl struct {
+	db  dbInterface
+	ctx context.Context
 
-	table     string
+	opts      core.Opts
+	quote     byte
+	marker    byte
 	updateAll bool
-	limit     string
-	offset    string
+	withTable bool
 
+	table  string
+	limit  string
+	offset string
+
+	errors     []error
 	selects    []string
-	prefixes   exprs
-	sqls       exprs
-	whereParts parts
+	prefixes   Parts
+	sqls       Parts
+	whereParts Parts
 	orderBys   []string
 	groupBys   []string
-	suffixes   exprs
+	suffixes   Parts
+
+	preloads []preloadPart
 }
 
-func (db *Database) NewQuery() *Query {
-	return &Query{db: db, marker: db.marker, ctx: context.Background()}
+var _ Query = &queryImpl{}
+
+// NewQuery ...
+func (db *Database) NewQuery() Query {
+	return &queryImpl{
+		db:  db,
+		ctx: context.Background(),
+
+		opts:   db.opts,
+		quote:  db.quote,
+		marker: db.marker,
+	}
 }
 
-func (tx *tx) NewQuery() *Query {
-	return &Query{db: tx, marker: tx.db.marker, ctx: tx.ctx}
+// NewQuery ...
+func (tx *tx) NewQuery() Query {
+	return &queryImpl{
+		db:  tx,
+		ctx: tx.ctx,
+
+		opts:   tx.db.opts,
+		quote:  tx.db.quote,
+		marker: tx.db.marker,
+	}
 }
 
-func (q *Query) WithContext(ctx context.Context) *Query {
+func (q *queryImpl) NewQuery() Query {
+	return &queryImpl{
+		db:     q.db,
+		ctx:    q.ctx,
+		opts:   q.opts,
+		quote:  q.quote,
+		marker: q.marker,
+	}
+}
+
+// WithContext ...
+func (q *queryImpl) WithContext(ctx context.Context) Query {
 	q.ctx = ctx
 	return q
 }
 
-func (q *Query) Clone() *Query {
-	nq := &Query{
-		db:     q.db,
-		ctx:    q.ctx,
-		marker: q.marker,
+// Clone ...
+func (q *queryImpl) Clone() Query {
+	return q.cloneWithPreds(nil)
+}
 
-		table:     q.table,
-		updateAll: q.updateAll,
-		limit:     q.limit,
-		offset:    q.offset,
+func (q *queryImpl) withPreds(preds []interface{}) *queryImpl {
+	if len(preds) == 0 {
+		return q
+	}
+	return q.cloneWithPreds(preds)
+}
 
-		prefixes:   make(exprs, len(q.prefixes)),
-		sqls:       make(exprs, len(q.sqls)),
-		whereParts: make([]Sqlizer, len(q.whereParts)),
+func (q *queryImpl) cloneWithPreds(preds []interface{}) *queryImpl {
+	nq := &queryImpl{
+		db:         q.db,
+		ctx:        q.ctx,
+		opts:       q.opts,
+		quote:      q.quote,
+		marker:     q.marker,
+		updateAll:  q.updateAll,
+		withTable:  q.withTable,
+		table:      q.table,
+		limit:      q.limit,
+		offset:     q.offset,
+		errors:     make([]error, len(q.errors)),
+		selects:    make([]string, len(q.selects), len(q.selects)+len(preds)),
+		prefixes:   make(Parts, len(q.prefixes)),
+		sqls:       make(Parts, len(q.sqls)),
+		whereParts: make([]WriterTo, len(q.whereParts)),
 		orderBys:   make([]string, len(q.orderBys)),
 		groupBys:   make([]string, len(q.groupBys)),
-		suffixes:   make(exprs, len(q.suffixes)),
+		suffixes:   make(Parts, len(q.suffixes)),
 	}
+	copy(nq.errors, q.errors)
+	copy(nq.selects, q.selects)
 	copy(nq.prefixes, q.prefixes)
 	copy(nq.sqls, q.sqls)
 	copy(nq.whereParts, q.whereParts)
 	copy(nq.orderBys, q.orderBys)
 	copy(nq.groupBys, q.groupBys)
 	copy(nq.suffixes, q.suffixes)
+	_ = nq.Where(preds...)
 	return nq
 }
 
-var bpool = &sync.Pool{
-	New: func() interface{} {
-		b := make([]byte, 0, 1024)
-		return &b
-	},
-}
+type builderFunc func(core.SQLWriter) error
 
-func poolGet() *[]byte {
-	return bpool.Get().(*[]byte)
-}
-
-func poolPut(b *[]byte) {
-	*b = (*b)[:0]
-	bpool.Put(b)
-}
-
-type questionMarker struct{}
-
-func (q questionMarker) AppendMarker(b []byte, n int) []byte {
-	b = append(b, '?')
-	for i := 1; i < n; i++ {
-		b = append(b, ",?"...)
-	}
-	return b
-}
-
-func (q questionMarker) AppendQuery(b []byte, query []byte) []byte {
-	return append(b, query...)
-}
-
-func (q questionMarker) AppendQueryStr(b []byte, query string) []byte {
-	return append(b, query...)
-}
-
-type dollarMarker struct{ c int64 }
-
-func (d *dollarMarker) AppendMarker(b []byte, n int) []byte {
-	d.c++
-	b = append(b, '$')
-	b = strconv.AppendInt(b, d.c, 10)
-	for i := 1; i < n; i++ {
-		d.c++
-		b = append(b, ",$"...)
-		b = strconv.AppendInt(b, d.c, 10)
-	}
-	return b
-}
-
-func (d *dollarMarker) AppendQuery(b []byte, query []byte) []byte {
-	for i := range query {
-		ch := query[i]
-		switch ch {
-		case '?':
-			d.c++
-			b = append(b, '$')
-			b = strconv.AppendInt(b, d.c, 10)
-		default:
-			b = append(b, ch)
-		}
-	}
-	return b
-}
-
-func (d *dollarMarker) AppendQueryStr(b []byte, query string) []byte {
-	for i := range query {
-		ch := query[i]
-		switch ch {
-		case '?':
-			d.c++
-			b = append(b, '$')
-			b = strconv.AppendInt(b, d.c, 10)
-		default:
-			b = append(b, ch)
-		}
-	}
-	return b
-}
-
-type builder func(core.IState, []byte, []interface{}) ([]byte, []interface{}, error)
-
-func builderSimple(fn func(b []byte) []byte) builder {
-	return func(_ core.IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-		return fn(b), args, nil
-	}
-}
-
-func builderQuery(query string) builder {
-	return func(_ core.IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-		return append(b, query...), args, nil
-	}
-}
-
-func (q *Query) build(typ string, def interface{}, fn builder) (_ string, _ []interface{}, err error) {
-	buf := poolGet()
-	b := *buf
-	args := make([]interface{}, 0, 64)
+func (q *queryImpl) build(typ string, def interface{}, fn builderFunc) (_ string, _ []interface{}, err error) {
+	w := NewWriter(q.opts, q.quote, q.marker, 512)
 	defer func() {
-		poolPut(buf)
 		if err != nil {
 			entry := &LogEntry{
 				Ctx:   q.ctx,
-				Query: string(b),
-				Args:  args,
+				Query: w.String(),
+				Args:  w.args,
 				Error: err,
 				Flags: FlagBuild,
 			}
@@ -182,176 +142,186 @@ func (q *Query) build(typ string, def interface{}, fn builder) (_ string, _ []in
 	}()
 
 	if (typ == "UPDATE" || typ == "DELETE") && len(q.whereParts) == 0 {
-		return "", nil, core.Errorf("common/sql: %v must have WHERE", typ)
+		return "", nil, core.Errorf("sqlgen: %v must have WHERE", typ)
 	}
 
-	s := q.marker()
 	if len(q.prefixes) > 0 {
-		b, args, err = q.prefixes.Append(s, b, args, " ")
+		err = q.prefixes.WriteSQLTo(w, " ")
 		if err != nil {
-			return "", nil, err
+			return
 		}
-	}
-
-	if len(b) > 0 {
-		b = append(b, ' ')
+		w.WriteByte(' ')
 	}
 
 	switch {
 	case len(q.selects) > 0:
-		b = append(b, `SELECT `...)
+		w.WriteRawString(`SELECT `)
 		for i, sel := range q.selects {
-			if i > 0 {
-				b = append(b, ',')
+			if i != 0 {
+				w.WriteByte(',')
 			}
-			quote := canbeName(sel)
-			if quote {
-				b = append(b, '"')
-			}
-			b = append(b, sel...)
-			if quote {
-				b = append(b, '"')
-			}
+			w.WriteQueryName(sel)
 		}
 		if def, ok := def.(core.IJoin); ok {
-			b = append(b, ' ')
-			b = def.SQLJoin(b, nil)
+			w.WriteByte(' ')
+			def.SQLJoin(w, nil)
 		} else if q.table != "" {
-			b = append(b, ` FROM "`...)
-			b = append(b, q.table...)
-			b = append(b, '"')
+			w.WriteRawString(` FROM `)
+			w.WriteQueryName(q.table)
 		}
+		w.WriteByte(' ')
 
 	case fn != nil:
-		b, args, err = fn(s, b, args)
+		err = fn(w)
 		if err != nil {
-			return "", nil, err
+			return
 		}
-	default:
-		return "", nil, core.ErrNoAction
+		if q.withTable && q.table != "" {
+			w.WriteRawString(` FROM `)
+			w.WriteQueryName(q.table)
+		}
+		w.WriteByte(' ')
 	}
 
-	if len(q.sqls) > 0 {
-		if len(b) > 0 {
-			b = append(b, ' ')
-		}
-		b, args, err = q.sqls.Append(s, b, args, " ")
+	if len(q.sqls) != 0 {
+		err = q.sqls.WriteSQLTo(w, " ")
 		if err != nil {
-			return "", nil, err
+			return
 		}
+		w.WriteByte(' ')
 	}
-	if len(q.whereParts) > 0 {
-		b = append(b, " WHERE ("...)
-		b, args, err = q.whereParts.Append(s, b, args, ") AND (")
+	if len(q.whereParts) != 0 {
+		w.WriteRawString("WHERE (")
+		err = q.whereParts.WriteSQLTo(w, ") AND (")
 		if err != nil {
-			return "", nil, err
+			return
 		}
-		b = append(b, ')')
+		w.WriteRawString(") ")
 	}
-	if len(q.groupBys) > 0 {
-		b = append(b, " GROUP BY "...)
+	if len(q.groupBys) != 0 {
+		w.WriteRawString("GROUP BY ")
 		for i, s := range q.groupBys {
-			if i > 0 {
-				b = append(b, ',')
+			if i != 0 {
+				w.WriteByte(',')
 			}
-			quote := canbeName(s)
-			if quote {
-				b = append(b, '"')
-			}
-			b = append(b, s...)
-			if quote {
-				b = append(b, '"')
-			}
+			w.WriteQueryName(s)
 		}
+		w.WriteByte(' ')
 	}
-	if len(q.orderBys) > 0 {
-		b = append(b, " ORDER BY "...)
+	if len(q.orderBys) != 0 {
+		w.WriteRawString("ORDER BY ")
 		for i, s := range q.orderBys {
-			if i > 0 {
-				b = append(b, ',')
+			if i != 0 {
+				w.WriteByte(',')
 			}
-			quote := canbeName(s)
-			if quote {
-				b = append(b, '"')
-			}
-			b = append(b, s...)
-			if quote {
-				b = append(b, '"')
-			}
+			w.WriteQueryName(s)
 		}
+		w.WriteByte(' ')
 	}
 	if q.limit != "" {
-		b = append(b, " LIMIT "...)
-		b = append(b, q.limit...)
+		w.WriteRawString("LIMIT ")
+		w.WriteRawString(q.limit)
+		w.WriteByte(' ')
 	}
 	if q.offset != "" {
-		b = append(b, " OFFSET "...)
-		b = append(b, q.offset...)
+		w.WriteRawString("OFFSET ")
+		w.WriteRawString(q.offset)
+		w.WriteByte(' ')
 	}
-	if len(q.suffixes) > 0 {
-		b, args, err = q.suffixes.Append(s, b, args, " ")
+	if len(q.suffixes) != 0 {
+		err = q.suffixes.WriteSQLTo(w, " ")
 		if err != nil {
-			return "", nil, err
+			return
 		}
-		b = append(b, ' ')
+		w.WriteByte(' ')
 	}
-	return string(b), args, nil
+	s := w.String()
+	return s[:len(s)-1], w.args, nil
 }
 
-func canbeName(s string) bool {
-	if s == "" {
-		panic("common/sql: Empty!")
-	}
-	c := s[0]
-	if !(c == '_' ||
-		c >= 'a' && c <= 'z' ||
-		c >= 'A' && c <= 'Z') {
-		return false
-	}
-	for i := range s {
-		c := s[i]
-		if !(c == '_' ||
-			c >= 'a' && c <= 'z' ||
-			c >= 'A' && c <= 'Z' ||
-			c >= '0' && c <= '9') {
-			return false
-		}
-	}
-	return true
-}
-
-func (q *Query) assertTable(obj core.ITableName) {
+func (q *queryImpl) assertTable(obj core.ITableName) {
 	table := obj.SQLTableName()
-	if q.table == "" && table == "" {
-		panic("common/sql: No table provided")
+	if table == "" {
+		if q.table == "" && len(q.sqls) == 0 {
+			panic("sqlgen: no table name provided")
+		}
+		q.withTable = true
 	}
 	if q.table != "" && table != "" && q.table != table {
-		panic(fmt.Sprintf(
-			"common/sql: Table name does not match: %v != %v",
-			q.table, obj.SQLTableName()))
+		msg := fmt.Sprintf(
+			"sqlgen: table name does not match: %v != %v",
+			q.table, obj.SQLTableName())
+		panic(msg)
 	}
 }
 
-func (q *Query) Build() (string, []interface{}, error) {
-	return q.build("", nil, builderQuery(""))
+func (q *queryImpl) BuildPreload(table string, obj interface{}, preds ...interface{}) (string, []interface{}, error) {
+	preloader, ok := obj.(core.IPreload)
+	if !ok {
+		return "", nil, core.Errorf("sqlgen: %T does not support preload", obj)
+	}
+	desc := preloader.SQLPreload(table)
+	if desc == nil {
+		return "", nil, core.Errorf("sqlgen: %T does not support preload table %v", obj, table)
+	}
+
+	fkey, ids, items := desc.Fkey, desc.IDs, desc.Items
+	if ids == nil || fkey == "" || items == nil {
+		return "", nil, core.Errorf("sqlgen: invalid preload description")
+	}
+
+	nq := q.NewQuery().In(fkey, ids).Where(preds...)
+	return nq.BuildFind(items)
 }
 
-func (q *Query) BuildGet(obj core.IGet) (string, []interface{}, error) {
+// Build ...
+func (q *queryImpl) Build(preds ...interface{}) (string, []interface{}, error) {
+	return q.withPreds(preds).build("", nil, nil)
+}
+
+func (q *queryImpl) doPreloads(obj interface{}) error {
+	if len(q.preloads) == 0 {
+		return nil
+	}
+	exprs := make([]ExprString, len(q.preloads))
+	for i, preload := range q.preloads {
+		query, args, err := q.BuildPreload(preload.table, obj, preload.preds...)
+		if err != nil {
+			return err
+		}
+		exprs[i] = ExprString{query, args}
+	}
+
+	for _, expr := range exprs {
+		query, args := expr.SQL, expr.Args
+		_, err := q.db.ExecContext(q.ctx, query, args)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// BuildGet ...
+func (q *queryImpl) BuildGet(obj core.IGet, preds ...interface{}) (string, []interface{}, error) {
 	q.assertTable(obj)
-	return q.build("SELECT", obj, builderSimple(obj.SQLSelect))
+	return q.withPreds(preds).build("SELECT", obj, obj.SQLSelect)
 }
 
-func (q *Query) BuildFind(objs core.IFind) (string, []interface{}, error) {
+// BuildFind ...
+func (q *queryImpl) BuildFind(objs core.IFind, preds ...interface{}) (string, []interface{}, error) {
 	q.assertTable(objs)
-	return q.build("SELECT", objs, builderSimple(objs.SQLSelect))
+	return q.withPreds(preds).build("SELECT", objs, objs.SQLSelect)
 }
 
-func (q *Query) BuildInsert(obj core.IInsert) (string, []interface{}, error) {
+// BuildInsert ...
+func (q *queryImpl) BuildInsert(obj core.IInsert) (string, []interface{}, error) {
 	q.assertTable(obj)
 	return q.build("INSERT", nil, obj.SQLInsert)
 }
 
-func (q *Query) BuildUpdate(obj core.IUpdate) (string, []interface{}, error) {
+// BuildUpdate ...
+func (q *queryImpl) BuildUpdate(obj core.IUpdate) (string, []interface{}, error) {
 	q.assertTable(obj)
 	fn := obj.SQLUpdate
 	if q.updateAll {
@@ -360,20 +330,26 @@ func (q *Query) BuildUpdate(obj core.IUpdate) (string, []interface{}, error) {
 	return q.build("UPDATE", nil, fn)
 }
 
-func (q *Query) BuildDelete(obj core.ITableName) (string, []interface{}, error) {
+// BuildDelete ...
+func (q *queryImpl) BuildDelete(obj core.ITableName) (string, []interface{}, error) {
 	q.assertTable(obj)
 	tableName := obj.SQLTableName()
-	query := `DELETE FROM "` + tableName + `"`
-	return q.build("DELETE", nil, builderQuery(query))
+	return q.build("DELETE", nil, func(w core.SQLWriter) error {
+		w.WriteRawString("DELETE FROM ")
+		w.WriteName(tableName)
+		return nil
+	})
 }
 
-func (q *Query) BuildCount(obj core.ITableName) (string, []interface{}, error) {
+// BuildCount ...
+func (q *queryImpl) BuildCount(obj core.ITableName, preds ...interface{}) (string, []interface{}, error) {
 	q.assertTable(obj)
-	q = q.Select(`COUNT(*)`).Table(obj.SQLTableName())
-	return q.build("SELECT", obj, nil)
+	q.Select(`COUNT(*)`).Table(obj.SQLTableName())
+	return q.withPreds(preds).build("SELECT", obj, nil)
 }
 
-func (q *Query) Exec() (sql.Result, error) {
+// Exec ...
+func (q *queryImpl) Exec() (sql.Result, error) {
 	query, args, err := q.Build()
 	if err != nil {
 		return nil, err
@@ -381,7 +357,8 @@ func (q *Query) Exec() (sql.Result, error) {
 	return q.db.ExecContext(q.ctx, query, args...)
 }
 
-func (q *Query) Query() (*sql.Rows, error) {
+// Query ...
+func (q *queryImpl) Query() (*sql.Rows, error) {
 	query, args, err := q.Build()
 	if err != nil {
 		return nil, err
@@ -389,7 +366,8 @@ func (q *Query) Query() (*sql.Rows, error) {
 	return q.db.QueryContext(q.ctx, query, args...)
 }
 
-func (q *Query) QueryRow() (Row, error) {
+// QueryRow ...
+func (q *queryImpl) QueryRow() (Row, error) {
 	query, args, err := q.Build()
 	if err != nil {
 		return Row{}, err
@@ -397,7 +375,8 @@ func (q *Query) QueryRow() (Row, error) {
 	return q.db.QueryRowContext(q.ctx, query, args...), nil
 }
 
-func (q *Query) Scan(dest ...interface{}) error {
+// Scan ...
+func (q *queryImpl) Scan(dest ...interface{}) error {
 	query, args, err := q.Build()
 	if err != nil {
 		return err
@@ -405,26 +384,31 @@ func (q *Query) Scan(dest ...interface{}) error {
 	return q.db.QueryRowContext(q.ctx, query, args...).Scan(dest...)
 }
 
-func (q *Query) Get(obj core.IGet) (bool, error) {
+// Get ...
+func (q *queryImpl) Get(obj core.IGet, preds ...interface{}) (bool, error) {
 	q.limit = "1"
-	query, args, err := q.BuildGet(obj)
+	query, args, err := q.BuildGet(obj, preds...)
 	if err != nil {
 		return false, err
 	}
 	row := q.db.QueryRowContext(q.ctx, query, args...)
-	sqlErr := obj.SQLScan(row.row)
+	sqlErr := obj.SQLScan(q.opts, row.Row)
 
 	// The above SQLScan() is called with *sql.Row, therefore logging and
 	// mapping come here.
-	err = row.log(sqlErr)
+	err = row.Log(sqlErr)
 	if sqlErr == sql.ErrNoRows {
 		return false, nil
+	}
+	if err == nil && len(q.preloads) > 0 {
+		err = q.doPreloads(obj)
 	}
 	return err == nil, err
 }
 
-func (q *Query) Find(objs core.IFind) error {
-	query, args, err := q.BuildFind(objs)
+// Find ...
+func (q *queryImpl) Find(objs core.IFind, preds ...interface{}) error {
+	query, args, err := q.BuildFind(objs, preds...)
 	if err != nil {
 		return err
 	}
@@ -433,14 +417,22 @@ func (q *Query) Find(objs core.IFind) error {
 		return err
 	}
 	defer func() { _ = rows.Close() }()
-	return objs.SQLScan(rows)
+	err = objs.SQLScan(q.opts, rows)
+	if err == nil && len(q.preloads) > 0 {
+		err = q.doPreloads(objs)
+	}
+	return err
 }
 
-func (q *Query) Insert(objs ...core.IInsert) (int64, error) {
+// Insert ...
+func (q *queryImpl) Insert(objs ...core.IInsert) (int64, error) {
 	switch len(objs) {
 	case 0:
 		return 0, nil
 	case 1:
+		if err := execBeforeInsert(objs[0]); err != nil {
+			return 0, err
+		}
 		query, args, err := q.BuildInsert(objs[0])
 		if err != nil {
 			return 0, err
@@ -452,6 +444,11 @@ func (q *Query) Insert(objs ...core.IInsert) (int64, error) {
 		return res.RowsAffected()
 	default:
 		doInsert := func(tx Tx) (int64, error) {
+			for _, obj := range objs {
+				if err := execBeforeInsert(obj); err != nil {
+					return 0, err
+				}
+			}
 			var count int64
 			for _, obj := range objs {
 				c, err := tx.Insert(obj)
@@ -483,7 +480,8 @@ func (q *Query) Insert(objs ...core.IInsert) (int64, error) {
 	}
 }
 
-func (q *Query) Update(objs ...core.IUpdate) (int64, error) {
+// Update ...
+func (q *queryImpl) Update(objs ...core.IUpdate) (int64, error) {
 	switch len(objs) {
 	case 1:
 		query, args, err := q.BuildUpdate(objs[0])
@@ -501,11 +499,13 @@ func (q *Query) Update(objs ...core.IUpdate) (int64, error) {
 	return 0, errors.New("TODO")
 }
 
-func (q *Query) UpdateMap(m map[string]interface{}) (int64, error) {
+// UpdateMap ...
+func (q *queryImpl) UpdateMap(m map[string]interface{}) (int64, error) {
 	return q.Update(core.Map{Table: q.table, M: m})
 }
 
-func (q *Query) Delete(obj core.ITableName) (int64, error) {
+// Delete ...
+func (q *queryImpl) Delete(obj core.ITableName) (int64, error) {
 	query, args, err := q.BuildDelete(obj)
 	if err != nil {
 		return 0, err
@@ -517,8 +517,9 @@ func (q *Query) Delete(obj core.ITableName) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (q *Query) Count(obj core.ITableName) (n uint64, err error) {
-	query, args, err := q.BuildCount(obj)
+// Count ...
+func (q *queryImpl) Count(obj core.ITableName, preds ...interface{}) (n uint64, err error) {
+	query, args, err := q.withPreds(preds).BuildCount(obj)
 	if err != nil {
 		return 0, err
 	}
@@ -526,109 +527,119 @@ func (q *Query) Count(obj core.ITableName) (n uint64, err error) {
 	return
 }
 
-func (q *Query) Table(name string) *Query {
+// Table ...
+func (q *queryImpl) Table(name string) Query {
 	q.table = name
 	return q
 }
 
 // Prefix adds an expression to the start of the query
-func (q *Query) Prefix(sql string, args ...interface{}) *Query {
-	q.prefixes = append(q.suffixes, Expr(sql, args...))
+func (q *queryImpl) Prefix(sql string, args ...interface{}) Query {
+	q.prefixes = append(q.suffixes, ExprString{sql, args})
 	return q
 }
 
-func (q *Query) Select(cols ...string) *Query {
+// Select ...
+func (q *queryImpl) Select(cols ...string) Query {
 	q.selects = append(q.selects, cols...)
 	return q
 }
 
-func (q *Query) From(name string) *Query {
+// From ...
+func (q *queryImpl) From(name string) Query {
 	q.table = name
 	return q
 }
 
-func (q *Query) SQL(sql string, args ...interface{}) *Query {
-	q.sqls = append(q.sqls, expr{sql, args})
+// SQL ...
+func (q *queryImpl) SQL(preds ...interface{}) Query {
+	q.sqls = append(q.sqls, NewExpr(preds...))
 	return q
 }
 
 // Where adds WHERE expressions to the query.
-func (q *Query) Where(cond string, args ...interface{}) *Query {
-	q.whereParts = append(q.whereParts, newWherePart(cond, args...))
+func (q *queryImpl) Where(preds ...interface{}) Query {
+	q.whereParts = q.whereParts.Append(preds...)
 	return q
 }
 
 // OrderBy adds ORDER BY expressions to the query.
-func (q *Query) OrderBy(orderBys ...string) *Query {
+func (q *queryImpl) OrderBy(orderBys ...string) Query {
 	q.orderBys = append(q.orderBys, orderBys...)
 	return q
 }
 
 // GroupBy adds GROUP BY expressions to the query.
-func (q *Query) GroupBy(groupBys ...string) *Query {
+func (q *queryImpl) GroupBy(groupBys ...string) Query {
 	q.groupBys = append(q.groupBys, groupBys...)
 	return q
 }
 
 // Limit sets a LIMIT clause on the query.
-func (q *Query) Limit(limit uint64) *Query {
+func (q *queryImpl) Limit(limit uint64) Query {
 	q.limit = strconv.FormatUint(limit, 10)
 	return q
 }
 
 // Offset sets a OFFSET clause on the query.
-func (q *Query) Offset(offset uint64) *Query {
+func (q *queryImpl) Offset(offset uint64) Query {
 	q.offset = strconv.FormatUint(offset, 10)
 	return q
 }
 
 // Suffix adds an expression to the end of the query
-func (q *Query) Suffix(sql string, args ...interface{}) *Query {
-	q.suffixes = append(q.suffixes, Expr(sql, args...))
+func (q *queryImpl) Suffix(sql string, args ...interface{}) Query {
+	q.suffixes = append(q.suffixes, ExprString{sql, args})
 	return q
 }
 
-func (q *Query) UpdateAll() *Query {
+// UpdateAll ...
+func (q *queryImpl) UpdateAll() Query {
 	q.updateAll = true
 	return q
 }
 
-func (q *Query) In(column string, args ...interface{}) *Query {
-	switch len(args) {
-	case 0:
-		q.whereParts = append(q.whereParts, newWherePart("FALSE"))
-		return q
-	case 1:
-		if t := reflect.TypeOf(args[0]); t.Kind() == reflect.Slice {
-			vArgs := reflect.ValueOf(args[0])
-			if vArgs.Len() == 0 {
-				q.whereParts = append(q.whereParts, newWherePart("FALSE"))
-				return q
-			}
-			args = make([]interface{}, vArgs.Len())
-			for i, n := 0, vArgs.Len(); i < n; i++ {
-				args[i] = vArgs.Index(i).Interface()
-			}
-		}
-	}
-
-	b := make([]byte, 0, 64)
-	quote := canbeName(column)
-	if quote {
-		b = append(b, '"')
-	}
-	b = append(b, column...)
-	if quote {
-		b = append(b, '"')
-	}
-	b = append(b, " IN ("...)
-	for i := range args {
-		if i > 0 {
-			b = append(b, ',')
-		}
-		b = append(b, '?')
-	}
-	b = append(b, ')')
-	q.whereParts = append(q.whereParts, newWherePart(b, args...))
+func (q *queryImpl) In(column string, args ...interface{}) Query {
+	q.whereParts = append(q.whereParts, NewInPart(true, column, args...))
 	return q
+}
+
+func (q *queryImpl) NotIn(column string, args ...interface{}) Query {
+	q.whereParts = append(q.whereParts, NewInPart(false, column, args...))
+	return q
+}
+
+// Exists ...
+func (q *queryImpl) Exists(column string, exists bool) Query {
+	return q.IsNull(column, !exists)
+}
+
+// IsNull ...
+func (q *queryImpl) IsNull(column string, null bool) Query {
+	q.whereParts = append(q.whereParts, NewIsNullPart(column, null))
+	return q
+}
+
+func (q *queryImpl) Apply(funcs ...func(query CommonQuery)) Query {
+	for _, fn := range funcs {
+		fn(q)
+	}
+	return q
+}
+
+func (q *queryImpl) Preload(table string, preds ...interface{}) Query {
+	part := preloadPart{table, preds}
+	q.preloads = append(q.preloads, part)
+	return q
+}
+
+func execBeforeInsert(obj interface{}) error {
+	if in, ok := obj.(BeforeInsertInterface); ok {
+		return in.BeforeInsert()
+	}
+	return nil
+}
+
+func (q *queryImpl) AddError(err error) {
+	q.errors = append(q.errors, err)
 }

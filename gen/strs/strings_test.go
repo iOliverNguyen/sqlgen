@@ -3,7 +3,7 @@ package strs_test
 import (
 	"testing"
 
-	. "github.com/ng-vu/sqlgen/core/strs"
+	. "github.com/ng-vu/sqlgen/gen/strs"
 )
 
 func TestToTitle(t *testing.T) {

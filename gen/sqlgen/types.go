@@ -2,8 +2,12 @@ package sqlgen
 
 import (
 	"go/types"
+	"reflect"
+
+	"github.com/ng-vu/sqlgen/gen/typedesc"
 )
 
+type TypeDesc = typedesc.TypeDesc
 type timeLevel int
 
 const (
@@ -11,311 +15,249 @@ const (
 	timeCreate timeLevel = 2
 )
 
-func (g *Gen) appendQueryArg(b []byte, prefix string, col *colDef) []byte {
-	nonNil := pathNonNil(prefix, col.pathElems)
-	if nonNil != "" {
-		b = appends(b, "core.Ternary(", nonNil, ", ")
-	}
-
-	path := col.Path()
-	typ := col.fieldType
-	typStr := g.TypeString(typ)
-	zero := ""
-	timeComp := ""
-	if col.timeLevel == timeUpdate {
-		timeComp = "true"
-	} else if col.timeLevel == timeCreate {
-		timeComp = "create"
-	}
-
-	b = func() []byte {
-		switch typStr {
-		case "time.Time":
-			if col.timeLevel > 0 {
-				zero = "now"
-				return appends(b, "core.Now(", prefix, '.', path, ", now, ", timeComp, ")")
-			}
-			zero = "nil"
-			return appends(b, "Time(", prefix, '.', path, ")")
-		case "*time.Time":
-			if col.timeLevel > 0 {
-				return appends(b, "core.NowP(", prefix, '.', path, ", now, ", timeComp, ")")
-			}
-			zero = "nil"
-			return appends(b, prefix, '.', path)
-		case "json.RawMessage":
-			return appends(b, "JSON{", prefix, ".", path, "}")
-		}
-
-		switch g.TypeString(typ.Underlying()) {
-		case "bool":
-			zero = "false"
-			return appends(b, "Bool(", prefix, '.', path, ")")
-		case "float64":
-			zero = "0"
-			return appends(b, "Float(", prefix, '.', path, ")")
-		case "int":
-			zero = "0"
-			return appends(b, "Int(", prefix, '.', path, ")")
-		case "int64":
-			zero = "nil"
-			return appends(b, "Int64(", prefix, '.', path, ")")
-		case "string":
-			zero = "nil"
-			return appends(b, "String(", prefix, '.', path, ")")
-		case "*bool":
-			zero = "nil"
-			return appends(b, prefix, '.', path)
-		case "*float64":
-			zero = "nil"
-			return appends(b, prefix, '.', path)
-		case "*int":
-			zero = "nil"
-			return appends(b, prefix, '.', path)
-		case "*int64":
-			zero = "nil"
-			return appends(b, prefix, '.', path)
-		case "*string":
-			zero = "nil"
-			return appends(b, prefix, '.', path)
-		}
-
-		switch genericType(typ, typStr) {
-		case typeArray:
-			zero = "nil"
-			return appends(b, "Array{", prefix, '.', path, "}")
-		case typeStruct:
-			zero = "nil"
-			return appends(b, "JSON{&", prefix, ".", path, "}")
-		case typeMap, typePtrStruct, typeArrayStruct:
-			zero = "nil"
-			return appends(b, "JSON{", prefix, ".", path, "}")
-		case typePtrArray:
-			// panic
-		}
-		panic("Unsupported type: " + typStr)
-	}()
-	if nonNil != "" {
-		b = appends(b, ", ", zero, ")")
-	}
-	return b
+var basicWrappers = []string{
+	reflect.Bool:    "Bool",
+	reflect.Int:     "Int",
+	reflect.Int8:    "Int8",
+	reflect.Int16:   "Int16",
+	reflect.Int32:   "Int32",
+	reflect.Int64:   "Int64",
+	reflect.Uint:    "Uint",
+	reflect.Uint8:   "Uint8",
+	reflect.Uint16:  "Uint16",
+	reflect.Uint32:  "Uint32",
+	reflect.Uint64:  "Uint64",
+	reflect.Float32: "Float32",
+	reflect.Float64: "Float64",
+	reflect.String:  "String",
 }
 
-func (g *Gen) appendScanArg(b []byte, prefix string, col *colDef) []byte {
-	path := col.Path()
-	typ := col.fieldType
-	typStr := g.TypeString(typ)
+var typeMap = map[types.Type]*TypeDesc{}
 
-	switch typStr {
-	case "time.Time":
-		return appends(b, "(*Time)(&", prefix, '.', path, ")")
-	case "*time.Time":
-		return appends(b, '&', prefix, '.', path)
-	case "json.RawMessage":
-		return appends(b, "JSON{&", prefix, '.', path, "}")
+func GetTypeDesc(typ types.Type) *TypeDesc {
+	desc := typeMap[typ]
+	if desc == nil {
+		kt, err := typedesc.NewKindTuple(typ)
+		if err != nil {
+			panic(err)
+		}
+		desc = &TypeDesc{
+			TypeString: g.TypeString(typ),
+			Underlying: g.TypeString(typ.Underlying()),
+			KindTuple:  kt,
+		}
+		typeMap[typ] = desc
 	}
-
-	switch g.TypeString(typ.Underlying()) {
-	case "bool":
-		return appends(b, "(*Bool)(&", prefix, '.', path, ")")
-	case "float64":
-		return appends(b, "(*Float)(&", prefix, '.', path, ")")
-	case "int":
-		return appends(b, "(*Int)(&", prefix, '.', path, ")")
-	case "int64":
-		return appends(b, "(*Int64)(&", prefix, '.', path, ")")
-	case "string":
-		return appends(b, "(*String)(&", prefix, '.', path, ")")
-	case "*bool":
-		return appends(b, '&', prefix, '.', path)
-	case "*float64":
-		return appends(b, '&', prefix, '.', path)
-	case "*int":
-		return appends(b, '&', prefix, '.', path)
-	case "*int64":
-		return appends(b, '&', prefix, '.', path)
-	case "*string":
-		return appends(b, '&', prefix, '.', path)
-	}
-
-	switch genericType(typ, typStr) {
-	case typeArray:
-		return appends(b, "Array{&", prefix, '.', path, "}")
-	case typeMap, typeStruct, typePtrStruct, typeArrayStruct:
-		return appends(b, "JSON{&", prefix, ".", path, "}")
-	case typePtrArray:
-		// panic
-	}
-	panic("Unsupported type: " + typStr)
+	return desc
 }
 
-func (g *Gen) appendUpdateArg(b []byte, prefix string, col *colDef) []byte {
-	path := col.Path()
-	typ := col.fieldType
-	typStr := g.TypeString(typ)
-
-	switch typStr {
-	case "time.Time":
-		if col.timeLevel == timeUpdate {
-			return appends(b, "core.Now(", prefix, ".", path, ", now, true)")
-		}
-		return appends(b, prefix, ".", path)
-	case "*time.Time":
-		if col.timeLevel == timeUpdate {
-			return appends(b, "core.NowP(", prefix, ".", path, ", now, true)")
-		}
-		return appends(b, "*", prefix, ".", path)
-	case "json.RawMessage":
-		return appends(b, "JSON{", prefix, ".", path, "}")
-	}
-
-	// TODO(qv): Handle difference between primitive string and alias string
-
-	switch genericType(typ, typStr) {
-	case typeArray:
-		return appends(b, "Array{", prefix, '.', path, "}")
-	case typeStruct:
-		return appends(b, "JSON{&", prefix, ".", path, "}")
-	case typeMap, typePtrStruct, typeArrayStruct:
-		return appends(b, "JSON{", prefix, ".", path, "}")
-	case typePtrArray:
-		panic("Unsupported type: " + typStr)
-	}
-
-	// primitive types
-	if typStr[0] == '*' {
-		b = append(b, '*')
-	}
-	return appends(b, prefix, '.', path)
+func GenScanArg(path string, typ types.Type) string {
+	return genScanArg2(path, typ)
 }
 
-func pathNonNil(prefix string, path pathElems) string {
-	var v string
-	for _, elem := range path.BasePath() {
-		if elem.ptr {
-			v += prefix + "." + elem.path + `!= nil && `
-		}
-	}
-	if v == "" {
-		return ""
-	}
-	return v[:len(v)-4]
+func genScanArg(col *colDef) string {
+	path := "m." + col.Path()
+	return genScanArg2(path, col.fieldType)
 }
 
-func (g *Gen) nonZero(prefix string, col *colDef) string {
-	nonNil := pathNonNil(prefix, col.BasePath())
-	if nonNil != "" {
-		nonNil += " && "
+func genScanArg2(path string, typ types.Type) string {
+	desc := GetTypeDesc(typ)
+	switch {
+	case desc.IsPtrTime():
+		return "&" + path
+
+	case desc.IsBareTime():
+		return "(*core.Time)(&" + path + ")"
+
+	case desc.IsJSON():
+		return "core.JSON{&" + path + "}"
+
+	case desc.IsPtrBasic():
+		return "&" + path
+
+	case desc.IsBasic(): // && !IsPtrBasic()
+		return "(*core." + basicWrappers[desc.Elem] + ")(&" + path + ")"
+
+	case desc.IsSliceOfBasicOrTime():
+		return "core.Array{&" + path + ", opts}"
+
+	case
+		desc.IsSimpleKind(false, reflect.Struct),
+		desc.IsSimpleKind(true, reflect.Struct),
+		desc.IsSimpleKind(false, reflect.Map),
+		desc.IsSlice(): // && !desc.IsSliceOfBasicOrTime()
+		return "core.JSON{&" + path + "}"
 	}
-	v := prefix + "." + col.pathElems.Path()
 
-	typ := col.fieldType
-	typStr := g.TypeString(typ)
+	panic("unsupported type: " + desc.TypeString)
+}
 
-	switch typStr {
-	case "time.Time":
-		if col.timeLevel == timeUpdate {
-			return "true"
+func genInsertArg(col *colDef) string {
+	path := "m." + col.Path()
+	res := genInsertArg2(path, col.fieldType, col.timeLevel)
+
+	nonNilPath := col.GenNonNilPath()
+	if nonNilPath == "" {
+		return res
+	}
+	return "core.Ternary(" + nonNilPath + "," + res + ", nil)"
+}
+
+func genInsertArg2(path string, typ types.Type, timeLevel timeLevel) string {
+	desc := GetTypeDesc(typ)
+	switch {
+	case desc.IsPtrTime():
+		if timeLevel > 0 {
+			timeComp := getTimeComp(timeLevel)
+			return "core.NowP(" + path + ", now, " + timeComp + ")"
 		}
-		return nonNil + "!" + v + ".IsZero() && !" + v + ".Equal(__zeroTime)"
-	case "*time.Time":
-		if col.timeLevel == timeUpdate {
-			return "true"
+		return path
+
+	case desc.IsBareTime():
+		if timeLevel > 0 {
+			timeComp := getTimeComp(timeLevel)
+			return "core.Now(" + path + ", now, " + timeComp + ")"
 		}
-		return nonNil + v + " != nil"
-	case "json.RawMessage":
-		return nonNil + v + " != nil"
+		return "core.Time(" + path + ")"
+
+	case desc.IsJSON():
+		return "core.JSON{" + path + "}"
+
+	case desc.IsPtrBasic():
+		return path
+
+	case desc.IsBasic(): // && !desc.IsBasic()
+		return "core." + basicWrappers[desc.Elem] + "(" + path + ")"
+
+	case desc.IsSliceOfBasicOrTime():
+		return "core.Array{" + path + ", opts}"
+
+	case desc.IsSimpleKind(false, reflect.Struct):
+		return "core.JSON{&" + path + "}"
+
+	case
+		desc.IsSimpleKind(true, reflect.Struct),
+		desc.IsSimpleKind(false, reflect.Map),
+		desc.IsSlice(): // && !desc.IsSliceOfBasicOrTime()
+		return "core.JSON{" + path + "}"
 	}
 
-	switch g.TypeString(typ.Underlying()) {
-	case "bool":
-		return nonNil + v
-	case "float64", "int", "int64":
-		return nonNil + v + " != 0"
-	case "string":
-		return nonNil + v + ` != ""`
-	case "time.Time":
-		return "!time.Time(" + v + ").IsZero() && !time.Time(" + v + ").Equal(__zeroTime)"
-	case "*bool", "*float64", "*int", "*int64", "*string":
-		return nonNil + v + " != nil"
-	}
+	panic("unsupported type: " + desc.TypeString)
+}
 
-	switch genericType(typ, typStr) {
-	case typeArray, typeArrayStruct:
-		return nonNil + v + " != nil"
-	case typeMap, typePtrStruct:
-		return nonNil + v + " != nil"
-	case typeStruct:
+func getTimeComp(timeLevel timeLevel) string {
+	switch timeLevel {
+	case timeUpdate:
 		return "true"
-	case typePtrArray:
-		// panic
+	case timeCreate:
+		return "create"
 	}
-	panic("Unsupported type: " + typStr)
+	panic("unexpected")
 }
 
-func (g *Gen) zero(typ types.Type) string {
-	typStr := g.TypeString(typ)
-	switch typStr {
-	case "bool":
-		return "false"
-	case "float64", "int", "int64":
-		return "0"
-	case "time.Time":
+func genUpdateArg(col *colDef) string {
+	path := "m." + col.Path()
+	return genUpdateArg2(path, col.fieldType, col.timeLevel)
+}
+
+func genUpdateArg2(path string, typ types.Type, timeLevel timeLevel) string {
+	desc := GetTypeDesc(typ)
+	switch {
+	case desc.IsPtrTime():
+		if timeLevel == timeUpdate {
+			return "core.NowP(" + path + ", time.Now(), true)"
+		}
+		return "*" + path
+
+	case desc.IsBareTime():
+		if timeLevel == timeUpdate {
+			return "core.Now(" + path + ", time.Now(), true)"
+		}
+		return path
+
+	case desc.IsJSON():
+		return "core.JSON{" + path + "}"
+
+	case desc.IsPtrBasic():
+		if desc.TypeString == desc.Underlying {
+			return "*" + path
+		}
+		return "(" + desc.Underlying + ")(" + path + ")"
+
+	case desc.IsBasic(): // && !desc.IsPtrBasic()
+		if desc.TypeString == desc.Underlying {
+			return path
+		}
+		return desc.Underlying + "(" + path + ")"
+
+	case desc.IsSliceOfBasicOrTime():
+		return "core.Array{" + path + ", opts}"
+
+	case desc.IsSimpleKind(false, reflect.Struct):
+		return "core.JSON{&" + path + "}"
+
+	case
+		desc.IsSimpleKind(true, reflect.Struct),
+		desc.IsSimpleKind(false, reflect.Map),
+		desc.IsSlice(): // && !desc.IsSliceOfBasicOrTime()
+		return "core.JSON{" + path + "}"
+	}
+
+	panic("unsupported type: " + desc.TypeString)
+}
+
+func genIfNotEqualToZero(col *colDef) string {
+	path := "m." + col.pathElems.Path()
+	res := genNotEqualToZero(path, col.fieldType)
+
+	nonNilPath := col.GenNonNilPath()
+	if nonNilPath == "" {
+		return res
+	}
+	return nonNilPath + " && " + res
+}
+
+func genNotEqualToZero(path string, typ types.Type) string {
+	desc := GetTypeDesc(typ)
+	switch {
+	case desc.IsBareTime():
+		return "!" + path + ".IsZero()"
+	case desc.IsNillable():
+		return path + " != nil"
+	case desc.IsNumber():
+		return path + " != 0"
+	case desc.IsKind(reflect.Bool):
+		return path
+	case desc.IsKind(reflect.String):
+		return path + ` != ""`
+	case desc.IsKind(reflect.Struct):
+		return "true"
+	}
+
+	panic("unsupported type: " + desc.TypeString)
+}
+
+func genZeroValue(typ types.Type) string {
+	desc := GetTypeDesc(typ)
+	switch {
+	case desc.IsBareTime():
 		return "time.Time{}"
-	default:
+	case desc.IsNillable():
 		return "nil"
+	case desc.IsNumber():
+		return "0"
+	case desc.IsKind(reflect.Bool):
+		return "false"
+	case desc.IsKind(reflect.String):
+		return `""`
+	case desc.IsKind(reflect.Struct):
+		return desc.TypeString + "{}"
 	}
+
+	panic("unsupported type: " + desc.TypeString)
 }
 
-type typeGeneric int
-
-const (
-	typeInvalid typeGeneric = iota
-	//typeArrayByte
-	typeArrayStruct
-	typeArray
-	typePtrArray
-	typeMap
-	typeStruct
-	typePtrStruct
-)
-
-func genericType(typ types.Type, typStr string) typeGeneric {
-	switch typStr {
-	case "[]bool", "[]float64", "[]int", "[]int64", "[]string",
-		"[]time.Time", "[]*time.Time":
-		return typeArray
-	case "*[]bool", "*[]float64", "*[]int", "*[]int64", "*[]string",
-		"*[]time.Time", "*[]*time.Time":
-		return typePtrArray
-	}
-	if slice, ok := typ.Underlying().(*types.Slice); ok {
-		elem := slice.Elem().Underlying()
-		if e, ok := elem.(*types.Pointer); ok {
-			elem = e.Elem().Underlying()
-		}
-		if _, ok := elem.(*types.Struct); ok {
-			return typeArrayStruct
-		}
-	}
-	if _, ok := typ.Underlying().(*types.Map); ok {
-		return typeMap
-	}
-	p := false
-	if _typ, ok := typ.Underlying().(*types.Pointer); ok {
-		p = true
-		typ = _typ.Elem()
-	}
-	if _, ok := typ.Underlying().(*types.Struct); ok {
-		if p {
-			return typePtrStruct
-		}
-		return typeStruct
-	}
-	return typeInvalid
-}
-
-func (g *Gen) bareTypeName(typ types.Type) string {
+func bareTypeName(typ types.Type) string {
 	s := g.TypeString(typ)
 	if s[0] == '*' {
 		return s[1:]

@@ -225,7 +225,7 @@ func TestUser(t *testing.T) {
 		Convey("Update no column", func() {
 			update := &User{}
 			_, _, err := db.Where("id = ?", "1000").BuildUpdate(update)
-			So(err, ShouldBeError, "common/sql: No column to update")
+			So(err, ShouldBeError, "sqlgen: no column to update")
 		})
 		Convey("Update", func() {
 			update := &User{
