@@ -247,7 +247,7 @@ func TestErrorMapper(t *testing.T) {
 		})
 		Convey("Build", func() {
 			_, err := db.Table("foo").UpdateMap(nil)
-			So(err, ShouldBeError, "common/sql: UPDATE must have WHERE")
+			So(err, ShouldBeError, "sqlgen: UPDATE must have WHERE")
 
 			So(merr.Called, ShouldEqual, 1)
 			So(merr.Entry.IsBuild(), ShouldEqual, true)
@@ -259,7 +259,7 @@ func TestErrorMapper(t *testing.T) {
 			So(err, ShouldBeNil)
 
 			_, err = tx.Table("foo").UpdateMap(nil)
-			So(err, ShouldBeError, "common/sql: UPDATE must have WHERE")
+			So(err, ShouldBeError, "sqlgen: UPDATE must have WHERE")
 
 			So(merr.Called, ShouldEqual, 1)
 			So(merr.Entry.IsBuild(), ShouldEqual, true)

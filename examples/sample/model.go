@@ -23,7 +23,7 @@ sqlgen:
 
 //go:generate bash -c "rm sql.gen.go || true"
 //go:generate go install github.com/ng-vu/sqlgen/cmd/sqlgen
-//go:generate $GOPATH/bin/sqlgen -o sql.gen.go
+//go:generate sqlgen -o sql.gen.go
 //go:generate goimports -w sql.gen.go
 
 type User struct {

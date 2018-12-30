@@ -9,116 +9,67 @@ import (
 	core "github.com/ng-vu/sqlgen/core"
 )
 
-type (
-	Array  = core.Array
-	Bool   = core.Bool
-	Float  = core.Float
-	Int    = core.Int
-	Int64  = core.Int64
-	JSON   = core.JSON
-	String = core.String
-	Time   = core.Time
-	IState = core.IState
-)
-
-var __zeroTime = time.Unix(0, 0)
+type SQLWriter = core.SQLWriter
 
 type Users []*User
 
-const __sqlUser_Table = `user`
-const __sqlUser_ListCols = `"id","name","created_at","updated_at","bool","float64","int","int64","string","p_bool","p_float64","p_int","p_int64","p_string"`
-const __sqlUser_Insert = `INSERT INTO "user" (` + __sqlUser_ListCols + `) VALUES`
-const __sqlUser_Select = `SELECT ` + __sqlUser_ListCols + ` FROM "user"`
-const __sqlUser_UpdateAll = `UPDATE "user" SET (` + __sqlUser_ListCols + `)`
+const __sqlUser_Table = "user"
+const __sqlUser_ListCols = "\"id\",\"name\",\"created_at\",\"updated_at\",\"bool\",\"float64\",\"int\",\"int64\",\"string\",\"p_bool\",\"p_float64\",\"p_int\",\"p_int64\",\"p_string\""
+const __sqlUser_Insert = "INSERT INTO \"user\" (" + __sqlUser_ListCols + ") VALUES"
+const __sqlUser_Select = "SELECT " + __sqlUser_ListCols + " FROM \"user\""
+const __sqlUser_Select_history = "SELECT " + __sqlUser_ListCols + " FROM history.\"user\""
+const __sqlUser_UpdateAll = "UPDATE \"user\" SET (" + __sqlUser_ListCols + ")"
 
-func (m *User) SQLTableName() string {
-	return "user"
-}
+func (m *User) SQLTableName() string { return "user" }
+func (m Users) SQLTableName() string { return "user" }
 
-func (m Users) SQLTableName() string {
-	return "user"
-}
-
-func (m *User) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		String(m.ID),
-		String(m.Name),
-		Time(m.CreatedAt),
+func (m *User) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.String(m.ID),
+		core.String(m.Name),
+		core.Time(m.CreatedAt),
 		m.UpdatedAt,
-		Bool(m.Bool),
-		Float(m.Float64),
-		Int(m.Int),
-		Int64(m.Int64),
-		String(m.String),
+		core.Bool(m.Bool),
+		core.Float64(m.Float64),
+		core.Int(m.Int),
+		core.Int64(m.Int64),
+		core.String(m.String),
 		m.PBool,
 		m.PFloat64,
 		m.PInt,
 		m.PInt64,
 		m.PString,
-	)
-}
-
-func (_ *User) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUser_Select...)
-}
-
-func (_ *Users) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUser_Select...)
-}
-
-func (m *User) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUser_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 14)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms Users) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUser_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 14)
-		args = ms[i].SQLArgs(args, true)
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *User) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		(*String)(&m.ID),
-		(*String)(&m.Name),
-		(*Time)(&m.CreatedAt),
+func (m *User) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		(*core.String)(&m.ID),
+		(*core.String)(&m.Name),
+		(*core.Time)(&m.CreatedAt),
 		&m.UpdatedAt,
-		(*Bool)(&m.Bool),
-		(*Float)(&m.Float64),
-		(*Int)(&m.Int),
-		(*Int64)(&m.Int64),
-		(*String)(&m.String),
+		(*core.Bool)(&m.Bool),
+		(*core.Float64)(&m.Float64),
+		(*core.Int)(&m.Int),
+		(*core.Int64)(&m.Int64),
+		(*core.String)(&m.String),
 		&m.PBool,
 		&m.PFloat64,
 		&m.PInt,
 		&m.PInt64,
 		&m.PString,
-	)
+	}
 }
 
-func (m *User) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *User) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *Users) SQLScan(rows *sql.Rows) error {
+func (ms *Users) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(Users, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(User)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -131,211 +82,225 @@ func (ms *Users) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *User) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *User) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUser_Select)
+	return nil
+}
+
+func (_ Users) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUser_Select)
+	return nil
+}
+
+func (m *User) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUser_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(14)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms Users) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUser_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(14)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *User) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "user" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user")
+	w.WriteRawString(" SET ")
 	if m.ID != "" {
 		flag = true
-		b = append(b, `"id"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.ID)
+		w.WriteName("id")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.ID)
 	}
 	if m.Name != "" {
 		flag = true
-		b = append(b, `"name"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Name)
+		w.WriteName("name")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Name)
 	}
-	if !m.CreatedAt.IsZero() && !m.CreatedAt.Equal(__zeroTime) {
+	if !m.CreatedAt.IsZero() {
 		flag = true
-		b = append(b, `"created_at"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.CreatedAt)
+		w.WriteName("created_at")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.CreatedAt)
 	}
 	if m.UpdatedAt != nil {
 		flag = true
-		b = append(b, `"updated_at"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.UpdatedAt)
+		w.WriteName("updated_at")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.UpdatedAt)
 	}
 	if m.Bool {
 		flag = true
-		b = append(b, `"bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Bool)
+		w.WriteName("bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Bool)
 	}
 	if m.Float64 != 0 {
 		flag = true
-		b = append(b, `"float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Float64)
+		w.WriteName("float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Float64)
 	}
 	if m.Int != 0 {
 		flag = true
-		b = append(b, `"int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Int)
+		w.WriteName("int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Int)
 	}
 	if m.Int64 != 0 {
 		flag = true
-		b = append(b, `"int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Int64)
+		w.WriteName("int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Int64)
 	}
 	if m.String != "" {
 		flag = true
-		b = append(b, `"string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.String)
+		w.WriteName("string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.String)
 	}
 	if m.PBool != nil {
 		flag = true
-		b = append(b, `"p_bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PBool)
+		w.WriteName("p_bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PBool)
 	}
 	if m.PFloat64 != nil {
 		flag = true
-		b = append(b, `"p_float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PFloat64)
+		w.WriteName("p_float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PFloat64)
 	}
 	if m.PInt != nil {
 		flag = true
-		b = append(b, `"p_int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PInt)
+		w.WriteName("p_int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PInt)
 	}
 	if m.PInt64 != nil {
 		flag = true
-		b = append(b, `"p_int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PInt64)
+		w.WriteName("p_int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PInt64)
 	}
 	if m.PString != nil {
 		flag = true
-		b = append(b, `"p_string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PString)
+		w.WriteName("p_string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PString)
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *User) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUser_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 14)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *User) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUser_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(14)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type UserSubsets []*UserSubset
 
-const __sqlUserSubset_Table = `user_subset`
-const __sqlUserSubset_ListCols = `"id","bool","float64","int","int64","string","p_bool","p_float64","p_int","p_int64","p_string"`
-const __sqlUserSubset_Insert = `INSERT INTO "user_subset" (` + __sqlUserSubset_ListCols + `) VALUES`
-const __sqlUserSubset_Select = `SELECT ` + __sqlUserSubset_ListCols + ` FROM "user_subset"`
-const __sqlUserSubset_UpdateAll = `UPDATE "user_subset" SET (` + __sqlUserSubset_ListCols + `)`
+const __sqlUserSubset_Table = "user_subset"
+const __sqlUserSubset_ListCols = "\"id\",\"bool\",\"float64\",\"int\",\"int64\",\"string\",\"p_bool\",\"p_float64\",\"p_int\",\"p_int64\",\"p_string\""
+const __sqlUserSubset_Insert = "INSERT INTO \"user_subset\" (" + __sqlUserSubset_ListCols + ") VALUES"
+const __sqlUserSubset_Select = "SELECT " + __sqlUserSubset_ListCols + " FROM \"user_subset\""
+const __sqlUserSubset_Select_history = "SELECT " + __sqlUserSubset_ListCols + " FROM history.\"user_subset\""
+const __sqlUserSubset_UpdateAll = "UPDATE \"user_subset\" SET (" + __sqlUserSubset_ListCols + ")"
 
-func (m *UserSubset) SQLTableName() string {
-	return "user_subset"
-}
+func (m *UserSubset) SQLTableName() string { return "user_subset" }
+func (m UserSubsets) SQLTableName() string { return "user_subset" }
 
-func (m UserSubsets) SQLTableName() string {
-	return "user_subset"
-}
-
-func (m *UserSubset) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		String(m.ID),
-		Bool(m.Bool),
-		Float(m.Float64),
-		Int(m.Int),
-		Int64(m.Int64),
-		String(m.String),
+func (m *UserSubset) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.String(m.ID),
+		core.Bool(m.Bool),
+		core.Float64(m.Float64),
+		core.Int(m.Int),
+		core.Int64(m.Int64),
+		core.String(m.String),
 		m.PBool,
 		m.PFloat64,
 		m.PInt,
 		m.PInt64,
 		m.PString,
-	)
-}
-
-func (_ *UserSubset) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserSubset_Select...)
-}
-
-func (_ *UserSubsets) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserSubset_Select...)
-}
-
-func (m *UserSubset) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserSubset_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 11)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms UserSubsets) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserSubset_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 11)
-		args = ms[i].SQLArgs(args, true)
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *UserSubset) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		(*String)(&m.ID),
-		(*Bool)(&m.Bool),
-		(*Float)(&m.Float64),
-		(*Int)(&m.Int),
-		(*Int64)(&m.Int64),
-		(*String)(&m.String),
+func (m *UserSubset) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		(*core.String)(&m.ID),
+		(*core.Bool)(&m.Bool),
+		(*core.Float64)(&m.Float64),
+		(*core.Int)(&m.Int),
+		(*core.Int64)(&m.Int64),
+		(*core.String)(&m.String),
 		&m.PBool,
 		&m.PFloat64,
 		&m.PInt,
 		&m.PInt64,
 		&m.PString,
-	)
+	}
 }
 
-func (m *UserSubset) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *UserSubset) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *UserSubsets) SQLScan(rows *sql.Rows) error {
+func (ms *UserSubsets) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(UserSubsets, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(UserSubset)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -348,192 +313,203 @@ func (ms *UserSubsets) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *UserSubset) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *UserSubset) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserSubset_Select)
+	return nil
+}
+
+func (_ UserSubsets) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserSubset_Select)
+	return nil
+}
+
+func (m *UserSubset) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserSubset_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(11)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms UserSubsets) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserSubset_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(11)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *UserSubset) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "user_subset" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user_subset")
+	w.WriteRawString(" SET ")
 	if m.ID != "" {
 		flag = true
-		b = append(b, `"id"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.ID)
+		w.WriteName("id")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.ID)
 	}
 	if m.Bool {
 		flag = true
-		b = append(b, `"bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Bool)
+		w.WriteName("bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Bool)
 	}
 	if m.Float64 != 0 {
 		flag = true
-		b = append(b, `"float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Float64)
+		w.WriteName("float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Float64)
 	}
 	if m.Int != 0 {
 		flag = true
-		b = append(b, `"int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Int)
+		w.WriteName("int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Int)
 	}
 	if m.Int64 != 0 {
 		flag = true
-		b = append(b, `"int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Int64)
+		w.WriteName("int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Int64)
 	}
 	if m.String != "" {
 		flag = true
-		b = append(b, `"string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.String)
+		w.WriteName("string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.String)
 	}
 	if m.PBool != nil {
 		flag = true
-		b = append(b, `"p_bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PBool)
+		w.WriteName("p_bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PBool)
 	}
 	if m.PFloat64 != nil {
 		flag = true
-		b = append(b, `"p_float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PFloat64)
+		w.WriteName("p_float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PFloat64)
 	}
 	if m.PInt != nil {
 		flag = true
-		b = append(b, `"p_int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PInt)
+		w.WriteName("p_int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PInt)
 	}
 	if m.PInt64 != nil {
 		flag = true
-		b = append(b, `"p_int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PInt64)
+		w.WriteName("p_int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PInt64)
 	}
 	if m.PString != nil {
 		flag = true
-		b = append(b, `"p_string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PString)
+		w.WriteName("p_string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PString)
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *UserSubset) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserSubset_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 11)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *UserSubset) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserSubset_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(11)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type UserInfoes []*UserInfo
 
-const __sqlUserInfo_Table = `user_info`
-const __sqlUserInfo_ListCols = `"user_id","metadata","bool","float64","int","int64","string","p_bool","p_float64","p_int","p_int64","p_string"`
-const __sqlUserInfo_Insert = `INSERT INTO "user_info" (` + __sqlUserInfo_ListCols + `) VALUES`
-const __sqlUserInfo_Select = `SELECT ` + __sqlUserInfo_ListCols + ` FROM "user_info"`
-const __sqlUserInfo_UpdateAll = `UPDATE "user_info" SET (` + __sqlUserInfo_ListCols + `)`
+const __sqlUserInfo_Table = "user_info"
+const __sqlUserInfo_ListCols = "\"user_id\",\"metadata\",\"bool\",\"float64\",\"int\",\"int64\",\"string\",\"p_bool\",\"p_float64\",\"p_int\",\"p_int64\",\"p_string\""
+const __sqlUserInfo_Insert = "INSERT INTO \"user_info\" (" + __sqlUserInfo_ListCols + ") VALUES"
+const __sqlUserInfo_Select = "SELECT " + __sqlUserInfo_ListCols + " FROM \"user_info\""
+const __sqlUserInfo_Select_history = "SELECT " + __sqlUserInfo_ListCols + " FROM history.\"user_info\""
+const __sqlUserInfo_UpdateAll = "UPDATE \"user_info\" SET (" + __sqlUserInfo_ListCols + ")"
 
-func (m *UserInfo) SQLTableName() string {
-	return "user_info"
-}
+func (m *UserInfo) SQLTableName() string  { return "user_info" }
+func (m UserInfoes) SQLTableName() string { return "user_info" }
 
-func (m UserInfoes) SQLTableName() string {
-	return "user_info"
-}
-
-func (m *UserInfo) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		String(m.UserID),
-		String(m.Metadata),
-		Bool(m.Bool),
-		Float(m.Float64),
-		Int(m.Int),
-		Int64(m.Int64),
-		String(m.String),
+func (m *UserInfo) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.String(m.UserID),
+		core.String(m.Metadata),
+		core.Bool(m.Bool),
+		core.Float64(m.Float64),
+		core.Int(m.Int),
+		core.Int64(m.Int64),
+		core.String(m.String),
 		m.PBool,
 		m.PFloat64,
 		m.PInt,
 		m.PInt64,
 		m.PString,
-	)
-}
-
-func (_ *UserInfo) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserInfo_Select...)
-}
-
-func (_ *UserInfoes) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserInfo_Select...)
-}
-
-func (m *UserInfo) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserInfo_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 12)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms UserInfoes) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserInfo_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 12)
-		args = ms[i].SQLArgs(args, true)
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *UserInfo) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		(*String)(&m.UserID),
-		(*String)(&m.Metadata),
-		(*Bool)(&m.Bool),
-		(*Float)(&m.Float64),
-		(*Int)(&m.Int),
-		(*Int64)(&m.Int64),
-		(*String)(&m.String),
+func (m *UserInfo) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		(*core.String)(&m.UserID),
+		(*core.String)(&m.Metadata),
+		(*core.Bool)(&m.Bool),
+		(*core.Float64)(&m.Float64),
+		(*core.Int)(&m.Int),
+		(*core.Int64)(&m.Int64),
+		(*core.String)(&m.String),
 		&m.PBool,
 		&m.PFloat64,
 		&m.PInt,
 		&m.PInt64,
 		&m.PString,
-	)
+	}
 }
 
-func (m *UserInfo) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *UserInfo) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *UserInfoes) SQLScan(rows *sql.Rows) error {
+func (ms *UserInfoes) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(UserInfoes, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(UserInfo)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -546,179 +522,191 @@ func (ms *UserInfoes) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *UserInfo) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *UserInfo) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInfo_Select)
+	return nil
+}
+
+func (_ UserInfoes) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInfo_Select)
+	return nil
+}
+
+func (m *UserInfo) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInfo_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(12)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms UserInfoes) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInfo_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(12)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *UserInfo) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "user_info" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user_info")
+	w.WriteRawString(" SET ")
 	if m.UserID != "" {
 		flag = true
-		b = append(b, `"user_id"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.UserID)
+		w.WriteName("user_id")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.UserID)
 	}
 	if m.Metadata != "" {
 		flag = true
-		b = append(b, `"metadata"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Metadata)
+		w.WriteName("metadata")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Metadata)
 	}
 	if m.Bool {
 		flag = true
-		b = append(b, `"bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Bool)
+		w.WriteName("bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Bool)
 	}
 	if m.Float64 != 0 {
 		flag = true
-		b = append(b, `"float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Float64)
+		w.WriteName("float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Float64)
 	}
 	if m.Int != 0 {
 		flag = true
-		b = append(b, `"int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Int)
+		w.WriteName("int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Int)
 	}
 	if m.Int64 != 0 {
 		flag = true
-		b = append(b, `"int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Int64)
+		w.WriteName("int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Int64)
 	}
 	if m.String != "" {
 		flag = true
-		b = append(b, `"string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.String)
+		w.WriteName("string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.String)
 	}
 	if m.PBool != nil {
 		flag = true
-		b = append(b, `"p_bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PBool)
+		w.WriteName("p_bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PBool)
 	}
 	if m.PFloat64 != nil {
 		flag = true
-		b = append(b, `"p_float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PFloat64)
+		w.WriteName("p_float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PFloat64)
 	}
 	if m.PInt != nil {
 		flag = true
-		b = append(b, `"p_int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PInt)
+		w.WriteName("p_int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PInt)
 	}
 	if m.PInt64 != nil {
 		flag = true
-		b = append(b, `"p_int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PInt64)
+		w.WriteName("p_int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PInt64)
 	}
 	if m.PString != nil {
 		flag = true
-		b = append(b, `"p_string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, *m.PString)
+		w.WriteName("p_string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(*m.PString)
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *UserInfo) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserInfo_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 12)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *UserInfo) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInfo_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(12)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type UserUnions []*UserUnion
 
-const __sqlUserUnion_Table = `user_union`
-const __sqlUserUnion_ListCols = `"user","user_info"`
-const __sqlUserUnion_Insert = `INSERT INTO "user_union" (` + __sqlUserUnion_ListCols + `) VALUES`
-const __sqlUserUnion_Select = `SELECT ` + __sqlUserUnion_ListCols + ` FROM "user_union"`
-const __sqlUserUnion_UpdateAll = `UPDATE "user_union" SET (` + __sqlUserUnion_ListCols + `)`
+const __sqlUserUnion_Table = "user_union"
+const __sqlUserUnion_ListCols = "\"user\",\"user_info\""
+const __sqlUserUnion_Insert = "INSERT INTO \"user_union\" (" + __sqlUserUnion_ListCols + ") VALUES"
+const __sqlUserUnion_Select = "SELECT " + __sqlUserUnion_ListCols + " FROM \"user_union\""
+const __sqlUserUnion_Select_history = "SELECT " + __sqlUserUnion_ListCols + " FROM history.\"user_union\""
+const __sqlUserUnion_UpdateAll = "UPDATE \"user_union\" SET (" + __sqlUserUnion_ListCols + ")"
 
-func (m *UserUnion) SQLTableName() string {
-	return "user_union"
-}
+func (m *UserUnion) SQLTableName() string { return "user_union" }
+func (m UserUnions) SQLTableName() string { return "user_union" }
 
-func (m UserUnions) SQLTableName() string {
-	return "user_union"
-}
-
-func (m *UserUnion) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		JSON{m.User},
-		JSON{m.UserInfo},
-	)
-}
-
-func (_ *UserUnion) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserUnion_Select...)
-}
-
-func (_ *UserUnions) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserUnion_Select...)
-}
-
-func (m *UserUnion) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserUnion_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 2)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms UserUnions) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserUnion_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 2)
-		args = ms[i].SQLArgs(args, true)
+func (m *UserUnion) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.JSON{m.User},
+		core.JSON{m.UserInfo},
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *UserUnion) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		JSON{&m.User},
-		JSON{&m.UserInfo},
-	)
+func (m *UserUnion) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		core.JSON{&m.User},
+		core.JSON{&m.UserInfo},
+	}
 }
 
-func (m *UserUnion) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *UserUnion) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *UserUnions) SQLScan(rows *sql.Rows) error {
+func (ms *UserUnions) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(UserUnions, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(UserUnion)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -731,111 +719,113 @@ func (ms *UserUnions) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *UserUnion) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *UserUnion) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnion_Select)
+	return nil
+}
+
+func (_ UserUnions) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnion_Select)
+	return nil
+}
+
+func (m *UserUnion) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnion_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(2)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms UserUnions) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnion_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(2)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *UserUnion) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "user_union" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user_union")
+	w.WriteRawString(" SET ")
 	if m.User != nil {
 		flag = true
-		b = append(b, `"user"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.User})
+		w.WriteName("user")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.User})
 	}
 	if m.UserInfo != nil {
 		flag = true
-		b = append(b, `"user_info"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.UserInfo})
+		w.WriteName("user_info")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.UserInfo})
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *UserUnion) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserUnion_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 2)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *UserUnion) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnion_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(2)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type UserUnionMores []*UserUnionMore
 
-const __sqlUserUnionMore_Table = `user_union_more`
-const __sqlUserUnionMore_ListCols = `"user","user_info","user_subset"`
-const __sqlUserUnionMore_Insert = `INSERT INTO "user_union_more" (` + __sqlUserUnionMore_ListCols + `) VALUES`
-const __sqlUserUnionMore_Select = `SELECT ` + __sqlUserUnionMore_ListCols + ` FROM "user_union_more"`
-const __sqlUserUnionMore_UpdateAll = `UPDATE "user_union_more" SET (` + __sqlUserUnionMore_ListCols + `)`
+const __sqlUserUnionMore_Table = "user_union_more"
+const __sqlUserUnionMore_ListCols = "\"user\",\"user_info\",\"user_subset\""
+const __sqlUserUnionMore_Insert = "INSERT INTO \"user_union_more\" (" + __sqlUserUnionMore_ListCols + ") VALUES"
+const __sqlUserUnionMore_Select = "SELECT " + __sqlUserUnionMore_ListCols + " FROM \"user_union_more\""
+const __sqlUserUnionMore_Select_history = "SELECT " + __sqlUserUnionMore_ListCols + " FROM history.\"user_union_more\""
+const __sqlUserUnionMore_UpdateAll = "UPDATE \"user_union_more\" SET (" + __sqlUserUnionMore_ListCols + ")"
 
-func (m *UserUnionMore) SQLTableName() string {
-	return "user_union_more"
-}
+func (m *UserUnionMore) SQLTableName() string { return "user_union_more" }
+func (m UserUnionMores) SQLTableName() string { return "user_union_more" }
 
-func (m UserUnionMores) SQLTableName() string {
-	return "user_union_more"
-}
-
-func (m *UserUnionMore) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		JSON{m.User},
-		JSON{m.UserInfo},
-		JSON{m.UserSubset},
-	)
-}
-
-func (_ *UserUnionMore) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserUnionMore_Select...)
-}
-
-func (_ *UserUnionMores) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserUnionMore_Select...)
-}
-
-func (m *UserUnionMore) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserUnionMore_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 3)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms UserUnionMores) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserUnionMore_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 3)
-		args = ms[i].SQLArgs(args, true)
+func (m *UserUnionMore) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.JSON{m.User},
+		core.JSON{m.UserInfo},
+		core.JSON{m.UserSubset},
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *UserUnionMore) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		JSON{&m.User},
-		JSON{&m.UserInfo},
-		JSON{&m.UserSubset},
-	)
+func (m *UserUnionMore) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		core.JSON{&m.User},
+		core.JSON{&m.UserInfo},
+		core.JSON{&m.UserSubset},
+	}
 }
 
-func (m *UserUnionMore) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *UserUnionMore) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *UserUnionMores) SQLScan(rows *sql.Rows) error {
+func (ms *UserUnionMores) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(UserUnionMores, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(UserUnionMore)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -848,150 +838,153 @@ func (ms *UserUnionMores) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *UserUnionMore) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *UserUnionMore) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnionMore_Select)
+	return nil
+}
+
+func (_ UserUnionMores) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnionMore_Select)
+	return nil
+}
+
+func (m *UserUnionMore) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnionMore_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(3)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms UserUnionMores) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnionMore_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(3)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *UserUnionMore) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "user_union_more" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user_union_more")
+	w.WriteRawString(" SET ")
 	if m.User != nil {
 		flag = true
-		b = append(b, `"user"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.User})
+		w.WriteName("user")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.User})
 	}
 	if m.UserInfo != nil {
 		flag = true
-		b = append(b, `"user_info"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.UserInfo})
+		w.WriteName("user_info")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.UserInfo})
 	}
 	if m.UserSubset != nil {
 		flag = true
-		b = append(b, `"user_subset"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.UserSubset})
+		w.WriteName("user_subset")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.UserSubset})
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *UserUnionMore) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserUnionMore_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 3)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *UserUnionMore) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserUnionMore_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(3)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type ComplexInfoes []*ComplexInfo
 
-const __sqlComplexInfo_Table = `complex_info`
-const __sqlComplexInfo_ListCols = `"id","address","p_address","metadata","ints","int64s","strings","times","times_p","alias_string","alias_int64","alias_int","alias_bool","alias_float64","alias_p_string","alias_p_int64","alias_p_int","alias_p_bool","alias_p_float64"`
-const __sqlComplexInfo_Insert = `INSERT INTO "complex_info" (` + __sqlComplexInfo_ListCols + `) VALUES`
-const __sqlComplexInfo_Select = `SELECT ` + __sqlComplexInfo_ListCols + ` FROM "complex_info"`
-const __sqlComplexInfo_UpdateAll = `UPDATE "complex_info" SET (` + __sqlComplexInfo_ListCols + `)`
+const __sqlComplexInfo_Table = "complex_info"
+const __sqlComplexInfo_ListCols = "\"id\",\"address\",\"p_address\",\"metadata\",\"ints\",\"int64s\",\"strings\",\"times\",\"times_p\",\"alias_string\",\"alias_int64\",\"alias_int\",\"alias_bool\",\"alias_float64\",\"alias_p_string\",\"alias_p_int64\",\"alias_p_int\",\"alias_p_bool\",\"alias_p_float64\""
+const __sqlComplexInfo_Insert = "INSERT INTO \"complex_info\" (" + __sqlComplexInfo_ListCols + ") VALUES"
+const __sqlComplexInfo_Select = "SELECT " + __sqlComplexInfo_ListCols + " FROM \"complex_info\""
+const __sqlComplexInfo_Select_history = "SELECT " + __sqlComplexInfo_ListCols + " FROM history.\"complex_info\""
+const __sqlComplexInfo_UpdateAll = "UPDATE \"complex_info\" SET (" + __sqlComplexInfo_ListCols + ")"
 
-func (m *ComplexInfo) SQLTableName() string {
-	return "complex_info"
-}
+func (m *ComplexInfo) SQLTableName() string  { return "complex_info" }
+func (m ComplexInfoes) SQLTableName() string { return "complex_info" }
 
-func (m ComplexInfoes) SQLTableName() string {
-	return "complex_info"
-}
-
-func (m *ComplexInfo) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		String(m.ID),
-		JSON{&m.Address},
-		JSON{m.PAddress},
-		JSON{m.Metadata},
-		Array{m.Ints},
-		Array{m.Int64s},
-		Array{m.Strings},
-		Array{m.Times},
-		Array{m.TimesP},
-		String(m.AliasString),
-		Int64(m.AliasInt64),
-		Int(m.AliasInt),
-		Bool(m.AliasBool),
-		Float(m.AliasFloat64),
+func (m *ComplexInfo) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.String(m.ID),
+		core.JSON{&m.Address},
+		core.JSON{m.PAddress},
+		core.JSON{m.Metadata},
+		core.Array{m.Ints, opts},
+		core.Array{m.Int64s, opts},
+		core.Array{m.Strings, opts},
+		core.Array{m.Times, opts},
+		core.Array{m.TimesP, opts},
+		core.String(m.AliasString),
+		core.Int64(m.AliasInt64),
+		core.Int(m.AliasInt),
+		core.Bool(m.AliasBool),
+		core.Float64(m.AliasFloat64),
 		m.AliasPString,
 		m.AliasPInt64,
 		m.AliasPInt,
 		m.AliasPBool,
 		m.AliasPFloat64,
-	)
-}
-
-func (_ *ComplexInfo) SQLSelect(b []byte) []byte {
-	return append(b, __sqlComplexInfo_Select...)
-}
-
-func (_ *ComplexInfoes) SQLSelect(b []byte) []byte {
-	return append(b, __sqlComplexInfo_Select...)
-}
-
-func (m *ComplexInfo) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlComplexInfo_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 19)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms ComplexInfoes) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlComplexInfo_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 19)
-		args = ms[i].SQLArgs(args, true)
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *ComplexInfo) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		(*String)(&m.ID),
-		JSON{&m.Address},
-		JSON{&m.PAddress},
-		JSON{&m.Metadata},
-		Array{&m.Ints},
-		Array{&m.Int64s},
-		Array{&m.Strings},
-		Array{&m.Times},
-		Array{&m.TimesP},
-		(*String)(&m.AliasString),
-		(*Int64)(&m.AliasInt64),
-		(*Int)(&m.AliasInt),
-		(*Bool)(&m.AliasBool),
-		(*Float)(&m.AliasFloat64),
+func (m *ComplexInfo) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		(*core.String)(&m.ID),
+		core.JSON{&m.Address},
+		core.JSON{&m.PAddress},
+		core.JSON{&m.Metadata},
+		core.Array{&m.Ints, opts},
+		core.Array{&m.Int64s, opts},
+		core.Array{&m.Strings, opts},
+		core.Array{&m.Times, opts},
+		core.Array{&m.TimesP, opts},
+		(*core.String)(&m.AliasString),
+		(*core.Int64)(&m.AliasInt64),
+		(*core.Int)(&m.AliasInt),
+		(*core.Bool)(&m.AliasBool),
+		(*core.Float64)(&m.AliasFloat64),
 		&m.AliasPString,
 		&m.AliasPInt64,
 		&m.AliasPInt,
 		&m.AliasPBool,
 		&m.AliasPFloat64,
-	)
+	}
 }
 
-func (m *ComplexInfo) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *ComplexInfo) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *ComplexInfoes) SQLScan(rows *sql.Rows) error {
+func (ms *ComplexInfoes) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(ComplexInfoes, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(ComplexInfo)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -1004,228 +997,247 @@ func (ms *ComplexInfoes) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *ComplexInfo) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *ComplexInfo) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlComplexInfo_Select)
+	return nil
+}
+
+func (_ ComplexInfoes) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlComplexInfo_Select)
+	return nil
+}
+
+func (m *ComplexInfo) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlComplexInfo_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(19)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms ComplexInfoes) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlComplexInfo_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(19)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *ComplexInfo) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "complex_info" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("complex_info")
+	w.WriteRawString(" SET ")
 	if m.ID != "" {
 		flag = true
-		b = append(b, `"id"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.ID)
+		w.WriteName("id")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.ID)
 	}
 	if true {
 		flag = true
-		b = append(b, `"address"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{&m.Address})
+		w.WriteName("address")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{&m.Address})
 	}
 	if m.PAddress != nil {
 		flag = true
-		b = append(b, `"p_address"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.PAddress})
+		w.WriteName("p_address")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.PAddress})
 	}
 	if m.Metadata != nil {
 		flag = true
-		b = append(b, `"metadata"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, JSON{m.Metadata})
+		w.WriteName("metadata")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.JSON{m.Metadata})
 	}
 	if m.Ints != nil {
 		flag = true
-		b = append(b, `"ints"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, Array{m.Ints})
+		w.WriteName("ints")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.Array{m.Ints, opts})
 	}
 	if m.Int64s != nil {
 		flag = true
-		b = append(b, `"int64s"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, Array{m.Int64s})
+		w.WriteName("int64s")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.Array{m.Int64s, opts})
 	}
 	if m.Strings != nil {
 		flag = true
-		b = append(b, `"strings"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, Array{m.Strings})
+		w.WriteName("strings")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.Array{m.Strings, opts})
 	}
 	if m.Times != nil {
 		flag = true
-		b = append(b, `"times"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, Array{m.Times})
+		w.WriteName("times")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.Array{m.Times, opts})
 	}
 	if m.TimesP != nil {
 		flag = true
-		b = append(b, `"times_p"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, Array{m.TimesP})
+		w.WriteName("times_p")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(core.Array{m.TimesP, opts})
 	}
 	if m.AliasString != "" {
 		flag = true
-		b = append(b, `"alias_string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasString)
+		w.WriteName("alias_string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(string(m.AliasString))
 	}
 	if m.AliasInt64 != 0 {
 		flag = true
-		b = append(b, `"alias_int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasInt64)
+		w.WriteName("alias_int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(int64(m.AliasInt64))
 	}
 	if m.AliasInt != 0 {
 		flag = true
-		b = append(b, `"alias_int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasInt)
+		w.WriteName("alias_int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(int(m.AliasInt))
 	}
 	if m.AliasBool {
 		flag = true
-		b = append(b, `"alias_bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasBool)
+		w.WriteName("alias_bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(bool(m.AliasBool))
 	}
 	if m.AliasFloat64 != 0 {
 		flag = true
-		b = append(b, `"alias_float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasFloat64)
+		w.WriteName("alias_float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(float64(m.AliasFloat64))
 	}
 	if m.AliasPString != nil {
 		flag = true
-		b = append(b, `"alias_p_string"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasPString)
+		w.WriteName("alias_p_string")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg((*string)(m.AliasPString))
 	}
 	if m.AliasPInt64 != nil {
 		flag = true
-		b = append(b, `"alias_p_int64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasPInt64)
+		w.WriteName("alias_p_int64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg((*int64)(m.AliasPInt64))
 	}
 	if m.AliasPInt != nil {
 		flag = true
-		b = append(b, `"alias_p_int"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasPInt)
+		w.WriteName("alias_p_int")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg((*int)(m.AliasPInt))
 	}
 	if m.AliasPBool != nil {
 		flag = true
-		b = append(b, `"alias_p_bool"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasPBool)
+		w.WriteName("alias_p_bool")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg((*bool)(m.AliasPBool))
 	}
 	if m.AliasPFloat64 != nil {
 		flag = true
-		b = append(b, `"alias_p_float64"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.AliasPFloat64)
+		w.WriteName("alias_p_float64")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg((*float64)(m.AliasPFloat64))
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *ComplexInfo) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlComplexInfo_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 19)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *ComplexInfo) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlComplexInfo_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(19)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type UserTags []*UserTag
 
-const __sqlUserTag_Table = `user_tag`
-const __sqlUserTag_ListCols = `"province","new_name"`
-const __sqlUserTag_Insert = `INSERT INTO "user_tag" (` + __sqlUserTag_ListCols + `) VALUES`
-const __sqlUserTag_Select = `SELECT ` + __sqlUserTag_ListCols + ` FROM "user_tag"`
-const __sqlUserTag_UpdateAll = `UPDATE "user_tag" SET (` + __sqlUserTag_ListCols + `)`
+const __sqlUserTag_Table = "user_tag"
+const __sqlUserTag_ListCols = "\"province\",\"new_name\""
+const __sqlUserTag_Insert = "INSERT INTO \"user_tag\" (" + __sqlUserTag_ListCols + ") VALUES"
+const __sqlUserTag_Select = "SELECT " + __sqlUserTag_ListCols + " FROM \"user_tag\""
+const __sqlUserTag_Select_history = "SELECT " + __sqlUserTag_ListCols + " FROM history.\"user_tag\""
+const __sqlUserTag_UpdateAll = "UPDATE \"user_tag\" SET (" + __sqlUserTag_ListCols + ")"
 
-func (m *UserTag) SQLTableName() string {
-	return "user_tag"
-}
+func (m *UserTag) SQLTableName() string { return "user_tag" }
+func (m UserTags) SQLTableName() string { return "user_tag" }
 
-func (m UserTags) SQLTableName() string {
-	return "user_tag"
-}
-
-func (m *UserTag) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		String(m.Inline.Province),
-		String(m.Rename),
-	)
-}
-
-func (_ *UserTag) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserTag_Select...)
-}
-
-func (_ *UserTags) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserTag_Select...)
-}
-
-func (m *UserTag) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserTag_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 2)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms UserTags) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserTag_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 2)
-		args = ms[i].SQLArgs(args, true)
+func (m *UserTag) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.String(m.Inline.Province),
+		core.String(m.Rename),
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *UserTag) SQLScanArgs(args []interface{}) []interface{} {
-	return append(args,
-		(*String)(&m.Inline.Province),
-		(*String)(&m.Rename),
-	)
+func (m *UserTag) SQLScanArgs(opts core.Opts) []interface{} {
+	return []interface{}{
+		(*core.String)(&m.Inline.Province),
+		(*core.String)(&m.Rename),
+	}
 }
 
-func (m *UserTag) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *UserTag) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *UserTags) SQLScan(rows *sql.Rows) error {
+func (ms *UserTags) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(UserTags, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(UserTag)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -1238,110 +1250,112 @@ func (ms *UserTags) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *UserTag) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
+func (_ *UserTag) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserTag_Select)
+	return nil
+}
+
+func (_ UserTags) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserTag_Select)
+	return nil
+}
+
+func (m *UserTag) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserTag_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(2)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms UserTags) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserTag_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(2)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *UserTag) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
 	var flag bool
-	b = append(b, `UPDATE "user_tag" SET `...)
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user_tag")
+	w.WriteRawString(" SET ")
 	if m.Inline.Province != "" {
 		flag = true
-		b = append(b, `"province"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Inline.Province)
+		w.WriteName("province")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Inline.Province)
 	}
 	if m.Rename != "" {
 		flag = true
-		b = append(b, `"new_name"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Rename)
+		w.WriteName("new_name")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Rename)
 	}
 	if !flag {
-		return nil, nil, core.ErrNoColumn
+		return core.ErrNoColumn
 	}
-	return b[:len(b)-1], args, nil
+	w.TrimLast(1)
+	return nil
 }
 
-func (m *UserTag) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserTag_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 2)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (m *UserTag) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserTag_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(2)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
 
 type UserInlines []*UserInline
 
-const __sqlUserInline_Table = `user_inline`
-const __sqlUserInline_ListCols = `"province","province"`
-const __sqlUserInline_Insert = `INSERT INTO "user_inline" (` + __sqlUserInline_ListCols + `) VALUES`
-const __sqlUserInline_Select = `SELECT ` + __sqlUserInline_ListCols + ` FROM "user_inline"`
-const __sqlUserInline_UpdateAll = `UPDATE "user_inline" SET (` + __sqlUserInline_ListCols + `)`
+const __sqlUserInline_Table = "user_inline"
+const __sqlUserInline_ListCols = "\"province\",\"province\""
+const __sqlUserInline_Insert = "INSERT INTO \"user_inline\" (" + __sqlUserInline_ListCols + ") VALUES"
+const __sqlUserInline_Select = "SELECT " + __sqlUserInline_ListCols + " FROM \"user_inline\""
+const __sqlUserInline_Select_history = "SELECT " + __sqlUserInline_ListCols + " FROM history.\"user_inline\""
+const __sqlUserInline_UpdateAll = "UPDATE \"user_inline\" SET (" + __sqlUserInline_ListCols + ")"
 
-func (m *UserInline) SQLTableName() string {
-	return "user_inline"
-}
+func (m *UserInline) SQLTableName() string { return "user_inline" }
+func (m UserInlines) SQLTableName() string { return "user_inline" }
 
-func (m UserInlines) SQLTableName() string {
-	return "user_inline"
-}
-
-func (m *UserInline) SQLArgs(args []interface{}, create bool) []interface{} {
-	return append(args,
-		String(m.Inline.Province),
-		core.Ternary(m.PtrInline != nil, String(m.PtrInline.Province), nil),
-	)
-}
-
-func (_ *UserInline) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserInline_Select...)
-}
-
-func (_ *UserInlines) SQLSelect(b []byte) []byte {
-	return append(b, __sqlUserInline_Select...)
-}
-
-func (m *UserInline) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserInline_Insert...)
-	b = append(b, ` (`...)
-	b = s.AppendMarker(b, 2)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, true), nil
-}
-
-func (ms UserInlines) SQLInsert(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserInline_Insert...)
-	b = append(b, ` (`...)
-	for i := 0; i < len(ms); i++ {
-		if i > 0 {
-			b = append(b, `),(`...)
-		}
-		b = s.AppendMarker(b, 2)
-		args = ms[i].SQLArgs(args, true)
+func (m *UserInline) SQLArgs(opts core.Opts, create bool) []interface{} {
+	return []interface{}{
+		core.String(m.Inline.Province),
+		core.Ternary(m.PtrInline != nil, core.String(m.PtrInline.Province), nil),
 	}
-	b = append(b, ')')
-	return b, args, nil
 }
 
-func (m *UserInline) SQLScanArgs(args []interface{}) []interface{} {
+func (m *UserInline) SQLScanArgs(opts core.Opts) []interface{} {
 	m.PtrInline = new(Address)
-	return append(args,
-		(*String)(&m.Inline.Province),
-		(*String)(&m.PtrInline.Province),
-	)
+	return []interface{}{
+		(*core.String)(&m.Inline.Province),
+		(*core.String)(&m.PtrInline.Province),
+	}
 }
 
-func (m *UserInline) SQLScan(row *sql.Row) error {
-	args := make([]interface{}, 0, 64)
-	return row.Scan(m.SQLScanArgs(args)...)
+func (m *UserInline) SQLScan(opts core.Opts, row *sql.Row) error {
+	return row.Scan(m.SQLScanArgs(opts)...)
 }
 
-func (ms *UserInlines) SQLScan(rows *sql.Rows) error {
+func (ms *UserInlines) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	res := make(UserInlines, 0, 128)
-	args := make([]interface{}, 0, 64)
 	for rows.Next() {
 		m := new(UserInline)
-		args = args[:0]
-		args = m.SQLScanArgs(args)
+		args := m.SQLScanArgs(opts)
 		if err := rows.Scan(args...); err != nil {
 			return err
 		}
@@ -1354,33 +1368,72 @@ func (ms *UserInlines) SQLScan(rows *sql.Rows) error {
 	return nil
 }
 
-func (m *UserInline) SQLUpdate(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	var flag bool
-	b = append(b, `UPDATE "user_inline" SET `...)
-	if m.Inline.Province != "" {
-		flag = true
-		b = append(b, `"province"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.Inline.Province)
-	}
-	if m.PtrInline.Province != "" {
-		flag = true
-		b = append(b, `"province"=`...)
-		b = s.AppendMarker(b, 1)
-		b = append(b, ',')
-		args = append(args, m.PtrInline.Province)
-	}
-	if !flag {
-		return nil, nil, core.ErrNoColumn
-	}
-	return b[:len(b)-1], args, nil
+func (_ *UserInline) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInline_Select)
+	return nil
 }
 
-func (m *UserInline) SQLUpdateAll(s IState, b []byte, args []interface{}) ([]byte, []interface{}, error) {
-	b = append(b, __sqlUserInline_UpdateAll...)
-	b = append(b, ` = (`...)
-	b = s.AppendMarker(b, 2)
-	b = append(b, ')')
-	return b, m.SQLArgs(args, false), nil
+func (_ UserInlines) SQLSelect(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInline_Select)
+	return nil
+}
+
+func (m *UserInline) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInline_Insert)
+	w.WriteRawString(" (")
+	w.WriteMarkers(2)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), true))
+	return nil
+}
+
+func (ms UserInlines) SQLInsert(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInline_Insert)
+	w.WriteRawString(" (")
+	for i := 0; i < len(ms); i++ {
+		w.WriteMarkers(2)
+		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
+		w.WriteRawString("),(")
+	}
+	w.TrimLast(2)
+	return nil
+}
+
+func (m *UserInline) SQLUpdate(w SQLWriter) error {
+	now, opts := time.Now(), w.Opts()
+	_, _ = now, opts // suppress unuse error
+	var flag bool
+	w.WriteRawString("UPDATE ")
+	w.WriteName("user_inline")
+	w.WriteRawString(" SET ")
+	if m.Inline.Province != "" {
+		flag = true
+		w.WriteName("province")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.Inline.Province)
+	}
+	if m.PtrInline != nil && m.PtrInline.Province != "" {
+		flag = true
+		w.WriteName("province")
+		w.WriteByte('=')
+		w.WriteMarker()
+		w.WriteByte(',')
+		w.WriteArg(m.PtrInline.Province)
+	}
+	if !flag {
+		return core.ErrNoColumn
+	}
+	w.TrimLast(1)
+	return nil
+}
+
+func (m *UserInline) SQLUpdateAll(w SQLWriter) error {
+	w.WriteQueryString(__sqlUserInline_UpdateAll)
+	w.WriteRawString(" = (")
+	w.WriteMarkers(2)
+	w.WriteByte(')')
+	w.WriteArgs(m.SQLArgs(w.Opts(), false))
+	return nil
 }
