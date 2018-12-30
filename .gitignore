@@ -1,4 +1,5 @@
 __*
+.idea
 .DS_Store
 .vscode
 *.test
