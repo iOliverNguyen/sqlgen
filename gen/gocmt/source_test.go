@@ -2,7 +2,6 @@ package gocmt
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -14,11 +13,14 @@ import (
 var pkg string
 
 func init() {
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		panic("No GOPATH")
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		panic(err)
 	}
-	pkg = filepath.Join(gopath, "src/github.com/ng-vu/sqlgen/gen/gocmt")
+	if filepath.Base(root) != "sqlgen" {
+		panic(fmt.Sprintf("expect package sqlgen, got %v", filepath.Base(root)))
+	}
+	pkg = filepath.Join(root, "gen/gocmt")
 }
 
 func TestParsePkg1(t *testing.T) {

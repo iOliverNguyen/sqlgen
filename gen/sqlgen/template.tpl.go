@@ -11,10 +11,10 @@ const {{._Select}} = "SELECT " + {{._ListCols}} + " FROM {{.TableName | quote}}"
 const {{._Select}}_history = "SELECT " + {{._ListCols}} + " FROM history.{{.TableName | quote}}"
 const {{._UpdateAll}} = "UPDATE {{.TableName | quote}} SET (" + {{._ListCols}} + ")"
 {{else}}
-var {{._JoinTypes}} []sq.JOIN_TYPE
-var {{._As}} sq.AS
-var {{._JoinAs}} []sq.AS
-var {{._JoinConds}} []string
+var {{._JoinTypes}} = []sq.JOIN_TYPE{ {{.JoinTypes | join}} }
+var {{._As}} sq.AS = "{{.As}}"
+var {{._JoinAs}} = []sq.AS{ {{.JoinAs | join}} }
+var {{._JoinConds}} = []string{ {{.JoinConds | join}} }
 {{end}}
 
 func (m *{{.TypeName}}) SQLTableName() string { return {{.TableName | go}} }
@@ -107,7 +107,7 @@ func (ms {{.TypeNames}}) SQLInsert(w SQLWriter) error {
 {{if or .IsAll .IsUpdate}}
 func (m *{{.TypeName}}) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName({{.TableName | go}})

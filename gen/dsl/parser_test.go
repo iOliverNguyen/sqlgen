@@ -165,13 +165,13 @@ generate UserJoinAccount
 generate UserJoinAccount
 	from "user"         (User)        as u
 	join "account_user" (AccountUser) as au on u.id = au.user_id
-	join "account"      (Account)     as a  on a.id = au.account_id;
+	full join "account"      (Account)     as a  on a.id = au.account_id;
 `
 		expected := `
 generate UserJoinAccount
     from "user" (User) as u
     join "account_user" (AccountUser) as au on u.id = au.user_id
-    join "account" (Account) as a on a.id = au.account_id;
+    full join "account" (Account) as a on a.id = au.account_id;
 `[1:]
 		file, err := ParseString("test", src)
 		AssertNoError(t, err)
@@ -184,13 +184,13 @@ generate UserJoinAccount
 generate UserJoinAccount
 	from user
 	join account_user on "user".id  = account_user.user_id
-	join account      on account.id = account_user.account_id
+	full join account      on account.id = account_user.account_id
 `
 		expected := `
 generate UserJoinAccount
     from "user"
     join "account_user" on "user".id  = account_user.user_id
-    join "account" on account.id = account_user.account_id;
+    full join "account" on account.id = account_user.account_id;
 `[1:]
 		file, err := ParseString("test", src)
 		AssertNoError(t, err)
@@ -198,18 +198,18 @@ generate UserJoinAccount
 		AssertEqual(t, len(file.Declarations[0].Joins), 3)
 	})
 
-	t.Run("Simplied, use ` for on condition", func(t *testing.T) {
+	t.Run("Simplified, use ` for on condition", func(t *testing.T) {
 		src := `
 generate UserJoinAccount
 	from user
 	join account_user on ` + "`" + `"user".id  = account_user.user_id` + "`" + `
-	join account      on ` + "`" + `account.id = account_user.account_id` + "`" + `
+	full join account      on ` + "`" + `account.id = account_user.account_id` + "`" + `
 `
 		expected := `
 generate UserJoinAccount
     from "user"
     join "account_user" on "user".id  = account_user.user_id
-    join "account" on account.id = account_user.account_id;
+    full join "account" on account.id = account_user.account_id;
 `[1:]
 		file, err := ParseString("test", src)
 		AssertNoError(t, err)

@@ -42,10 +42,18 @@ func fnQuote(v interface{}) string {
 }
 
 func fnTableForType(typ types.Type) string {
-	return fmt.Sprintf("__sql%v_Table", g.TypeString(typ)[1:])
+	ts := g.TypeString(typ)
+	if ts[0] == '*' {
+		ts = ts[1:]
+	}
+	return fmt.Sprintf("__sql%v_Table", ts)
 }
 func fnListColsForType(typ types.Type) string {
-	return fmt.Sprintf("__sql%v_ListCols", g.TypeString(typ)[1:])
+	ts := g.TypeString(typ)
+	if ts[0] == '*' {
+		ts = ts[1:]
+	}
+	return fmt.Sprintf("__sql%v_ListCols", ts)
 }
 
 func fnNonZero(col *colDef) string {
@@ -80,6 +88,7 @@ func (g *Gen) GenerateCommon() {
 	}
 	g.init = true
 	g.NewImport("core", "github.com/ng-vu/sqlgen/core")()
+	g.NewImport("sq", "github.com/ng-vu/sqlgen/typesafe/sq")()
 	g.NewImport("", "database/sql")()
 
 	str := `
@@ -110,23 +119,21 @@ func (g *Gen) GenQueryFor(typ types.Type) error {
 		}
 	}
 
-	extra := ""
-	if def.base != nil {
-		extra = ", _ " + g.TypeString(def.base)
-	}
 	var joinTypes, joinAs, joinConds []string
 	if len(def.joins) != 0 {
-		extra += ", as sq.AS"
 		joinTypes = make([]string, len(def.joins))
 		joinAs = make([]string, len(def.joins))
 		joinConds = make([]string, len(def.joins))
-		for i, join := range def.joins {
-			extra += fmt.Sprintf(
-				", t%v sq.JOIN_TYPE, _ %v, a%v sq.AS, c%v string",
-				i, g.TypeString(join.JoinType), i, i)
-			joinTypes[i] = fmt.Sprintf("t%v", i)
-			joinAs[i] = fmt.Sprintf(`a%v`, i)
-			joinConds[i] = fmt.Sprintf("c%v", i)
+		for i, jn := range def.joins {
+			jnType := jn.JoinDef.JoinType
+			if jnType == "" {
+				jnType = "sq.JOIN"
+			} else {
+				jnType = "sq." + jnType + "_JOIN"
+			}
+			joinTypes[i] = jnType
+			joinAs[i] = `"` + jn.JoinDef.Alias + `"`
+			joinConds[i] = `"` + jn.JoinDef.OnCond + `"`
 		}
 	}
 
@@ -147,8 +154,6 @@ func (g *Gen) GenQueryFor(typ types.Type) error {
 		"IsUpdate":  def.update,
 		"IsNow":     "",
 
-		"FuncExtraArgs": extra,
-
 		"BaseType":  def.base,
 		"TypeName":  Str,
 		"TypeNames": Strs,
@@ -162,6 +167,7 @@ func (g *Gen) GenQueryFor(typ types.Type) error {
 		"ScanArgs":  listScanArgs(def.cols),
 		"TimeLevel": def.timeLevel,
 
+		"As":        def.as,
 		"Joins":     def.joins,
 		"JoinTypes": joinTypes,
 		"JoinAs":    joinAs,

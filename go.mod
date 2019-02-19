@@ -1,9 +1,9 @@
 module github.com/ng-vu/sqlgen
 
 require (
-	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
-	github.com/gopherjs/gopherjs v0.0.0-20180424202546-8dffc02ea1cb // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/lib/pq v0.0.0-20180523175426-90697d60dd84
 	github.com/ng-vu/goconveyx v0.0.0-20180602123644-10bc073ba239

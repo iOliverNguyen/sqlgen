@@ -99,7 +99,12 @@ func (jns Joins) String() string {
 	var buf strings.Builder
 	for i, jn := range jns {
 		if i > 0 {
-			buf.WriteString("\n    join ")
+			buf.WriteString("\n    ")
+			if jn.JoinType != "" {
+				buf.WriteString(strings.ToLower(jn.JoinType))
+				buf.WriteString(" ")
+			}
+			buf.WriteString("join ")
 		}
 		buf.WriteString(jn.String())
 	}
@@ -108,7 +113,8 @@ func (jns Joins) String() string {
 
 type Join struct {
 	DeclCommon
-	OnCond string
+	JoinType string
+	OnCond   string
 }
 
 func (jn *Join) String() string {
@@ -192,6 +198,15 @@ type lexer struct {
 	err  error
 }
 
+func isKeyword(s string) bool {
+	switch s {
+	case "generate", "join", "left", "right", "full", "from", "inner", "as", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 func (l *lexer) Lex(yylval *yySymType) (tok int) {
 	defer func() { l.last = tok }()
 
@@ -215,7 +230,7 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 		}
 
 		start := l.Position.Offset
-		for text != ";" && text != "generate" && text != "join" {
+		for text != ";" && !isKeyword(text) {
 			if tok := l.Scan(); tok == scanner.EOF {
 				text = ""
 				break
@@ -247,6 +262,14 @@ func (l *lexer) Lex(yylval *yySymType) (tok int) {
 		return FROM
 	case "as":
 		return AS
+	case "full":
+		return FULL
+	case "left":
+		return LEFT
+	case "right":
+		return RIGHT
+	case "inner":
+		return INNER
 	case "join":
 		return JOIN
 	case "on":

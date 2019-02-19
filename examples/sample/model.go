@@ -11,11 +11,11 @@ sqlgen:
   generate UserInfo
   generate UserUnion
     from "user"      as u
-    join "user_info" as ui on u.ui = ui.user_id
+    full join "user_info" as ui on u.id = ui.user_id
   generate UserUnionMore
     from "user"        as u
-    join "user_info"   as ui on u.ui = ui.user_id
-    join "user_subset" as us on u.ui = us.ui
+    full join "user_info"   as ui on u.id = ui.user_id
+    right join "user" (UserSubset) as us on u.id = us.id
   generate ComplexInfo
   generate UserTag
   generate UserInline

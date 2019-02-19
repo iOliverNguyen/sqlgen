@@ -5,4 +5,5 @@ __*
 *.test
 bin
 debug*
+go.sum
 vendor

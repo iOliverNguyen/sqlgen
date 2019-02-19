@@ -7,6 +7,7 @@ import (
 	time "time"
 
 	core "github.com/ng-vu/sqlgen/core"
+	sq "github.com/ng-vu/sqlgen/typesafe/sq"
 )
 
 type SQLWriter = core.SQLWriter
@@ -115,7 +116,7 @@ func (ms Users) SQLInsert(w SQLWriter) error {
 
 func (m *User) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName("user")
@@ -346,7 +347,7 @@ func (ms UserSubsets) SQLInsert(w SQLWriter) error {
 
 func (m *UserSubset) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName("user_subset")
@@ -555,7 +556,7 @@ func (ms UserInfoes) SQLInsert(w SQLWriter) error {
 
 func (m *UserInfo) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName("user_info")
@@ -674,29 +675,13 @@ func (m *UserInfo) SQLUpdateAll(w SQLWriter) error {
 
 type UserUnions []*UserUnion
 
-const __sqlUserUnion_Table = "user_union"
-const __sqlUserUnion_ListCols = "\"user\",\"user_info\""
-const __sqlUserUnion_Insert = "INSERT INTO \"user_union\" (" + __sqlUserUnion_ListCols + ") VALUES"
-const __sqlUserUnion_Select = "SELECT " + __sqlUserUnion_ListCols + " FROM \"user_union\""
-const __sqlUserUnion_Select_history = "SELECT " + __sqlUserUnion_ListCols + " FROM history.\"user_union\""
-const __sqlUserUnion_UpdateAll = "UPDATE \"user_union\" SET (" + __sqlUserUnion_ListCols + ")"
+var __sqlUserUnion_JoinTypes = []sq.JOIN_TYPE{sq.FULL_JOIN}
+var __sqlUserUnion_As sq.AS = "u"
+var __sqlUserUnion_JoinAs = []sq.AS{"ui"}
+var __sqlUserUnion_JoinConds = []string{"u.id = ui.user_id"}
 
-func (m *UserUnion) SQLTableName() string { return "user_union" }
-func (m UserUnions) SQLTableName() string { return "user_union" }
-
-func (m *UserUnion) SQLArgs(opts core.Opts, create bool) []interface{} {
-	return []interface{}{
-		core.JSON{m.User},
-		core.JSON{m.UserInfo},
-	}
-}
-
-func (m *UserUnion) SQLScanArgs(opts core.Opts) []interface{} {
-	return []interface{}{
-		core.JSON{&m.User},
-		core.JSON{&m.UserInfo},
-	}
-}
+func (m *UserUnion) SQLTableName() string { return "user" }
+func (m UserUnions) SQLTableName() string { return "user" }
 
 func (m *UserUnion) SQLScan(opts core.Opts, row *sql.Row) error {
 	return row.Scan(m.SQLScanArgs(opts)...)
@@ -719,103 +704,73 @@ func (ms *UserUnions) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	return nil
 }
 
-func (_ *UserUnion) SQLSelect(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnion_Select)
+func (m *UserUnion) SQLSelect(w SQLWriter) error {
+	(*UserUnion)(nil).__sqlSelect(w)
+	w.WriteByte(' ')
+	(*UserUnion)(nil).__sqlJoin(w, __sqlUserUnion_JoinTypes)
 	return nil
 }
 
-func (_ UserUnions) SQLSelect(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnion_Select)
-	return nil
+func (m UserUnions) SQLSelect(w SQLWriter) error {
+	return (*UserUnion)(nil).SQLSelect(w)
 }
 
-func (m *UserUnion) SQLInsert(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnion_Insert)
-	w.WriteRawString(" (")
-	w.WriteMarkers(2)
-	w.WriteByte(')')
-	w.WriteArgs(m.SQLArgs(w.Opts(), true))
-	return nil
-}
-
-func (ms UserUnions) SQLInsert(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnion_Insert)
-	w.WriteRawString(" (")
-	for i := 0; i < len(ms); i++ {
-		w.WriteMarkers(2)
-		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
-		w.WriteRawString("),(")
+func (m *UserUnion) SQLJoin(w SQLWriter, types []sq.JOIN_TYPE) error {
+	if len(types) == 0 {
+		types = __sqlUserUnion_JoinTypes
 	}
-	w.TrimLast(2)
+	m.__sqlJoin(w, types)
 	return nil
 }
 
-func (m *UserUnion) SQLUpdate(w SQLWriter) error {
-	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
-	var flag bool
-	w.WriteRawString("UPDATE ")
-	w.WriteName("user_union")
-	w.WriteRawString(" SET ")
-	if m.User != nil {
-		flag = true
-		w.WriteName("user")
-		w.WriteByte('=')
-		w.WriteMarker()
-		w.WriteByte(',')
-		w.WriteArg(core.JSON{m.User})
-	}
-	if m.UserInfo != nil {
-		flag = true
-		w.WriteName("user_info")
-		w.WriteByte('=')
-		w.WriteMarker()
-		w.WriteByte(',')
-		w.WriteArg(core.JSON{m.UserInfo})
-	}
-	if !flag {
-		return core.ErrNoColumn
-	}
-	w.TrimLast(1)
-	return nil
+func (m UserUnions) SQLJoin(w SQLWriter, types []sq.JOIN_TYPE) error {
+	return (*UserUnion)(nil).SQLJoin(w, types)
 }
 
-func (m *UserUnion) SQLUpdateAll(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnion_UpdateAll)
-	w.WriteRawString(" = (")
-	w.WriteMarkers(2)
-	w.WriteByte(')')
-	w.WriteArgs(m.SQLArgs(w.Opts(), false))
-	return nil
+func (m *UserUnion) __sqlSelect(w SQLWriter) {
+	w.WriteRawString("SELECT ")
+	core.WriteCols(w, string(__sqlUserUnion_As), __sqlUser_ListCols)
+	w.WriteByte(',')
+	core.WriteCols(w, string(__sqlUserUnion_JoinAs[0]), __sqlUserInfo_ListCols)
+}
+
+func (m *UserUnion) __sqlJoin(w SQLWriter, types []sq.JOIN_TYPE) {
+	if len(types) != 1 {
+		panic("sqlgen: expect type to join")
+	}
+	w.WriteRawString("FROM ")
+	w.WriteName("user")
+	w.WriteRawString(" AS ")
+	w.WriteRawString(string(__sqlUserUnion_As))
+	w.WriteByte(' ')
+	w.WriteRawString(string(types[0]))
+	w.WriteRawString(" JOIN ")
+	w.WriteName(__sqlUserInfo_Table)
+	w.WriteRawString(" AS ")
+	w.WriteRawString(string(__sqlUserUnion_JoinAs[0]))
+	w.WriteRawString(" ON ")
+	w.WriteQueryString(__sqlUserUnion_JoinConds[0])
+}
+
+func (m *UserUnion) SQLScanArgs(opts core.Opts) []interface{} {
+	args := make([]interface{}, 0, 64) // TODO: pre-calculate length
+	m.User = new(User)
+	args = append(args, m.User.SQLScanArgs(opts)...)
+	m.UserInfo = new(UserInfo)
+	args = append(args, m.UserInfo.SQLScanArgs(opts)...)
+
+	return args
 }
 
 type UserUnionMores []*UserUnionMore
 
-const __sqlUserUnionMore_Table = "user_union_more"
-const __sqlUserUnionMore_ListCols = "\"user\",\"user_info\",\"user_subset\""
-const __sqlUserUnionMore_Insert = "INSERT INTO \"user_union_more\" (" + __sqlUserUnionMore_ListCols + ") VALUES"
-const __sqlUserUnionMore_Select = "SELECT " + __sqlUserUnionMore_ListCols + " FROM \"user_union_more\""
-const __sqlUserUnionMore_Select_history = "SELECT " + __sqlUserUnionMore_ListCols + " FROM history.\"user_union_more\""
-const __sqlUserUnionMore_UpdateAll = "UPDATE \"user_union_more\" SET (" + __sqlUserUnionMore_ListCols + ")"
+var __sqlUserUnionMore_JoinTypes = []sq.JOIN_TYPE{sq.FULL_JOIN, sq.RIGHT_JOIN}
+var __sqlUserUnionMore_As sq.AS = "u"
+var __sqlUserUnionMore_JoinAs = []sq.AS{"ui", "us"}
+var __sqlUserUnionMore_JoinConds = []string{"u.id = ui.user_id", "u.id = us.id"}
 
-func (m *UserUnionMore) SQLTableName() string { return "user_union_more" }
-func (m UserUnionMores) SQLTableName() string { return "user_union_more" }
-
-func (m *UserUnionMore) SQLArgs(opts core.Opts, create bool) []interface{} {
-	return []interface{}{
-		core.JSON{m.User},
-		core.JSON{m.UserInfo},
-		core.JSON{m.UserSubset},
-	}
-}
-
-func (m *UserUnionMore) SQLScanArgs(opts core.Opts) []interface{} {
-	return []interface{}{
-		core.JSON{&m.User},
-		core.JSON{&m.UserInfo},
-		core.JSON{&m.UserSubset},
-	}
-}
+func (m *UserUnionMore) SQLTableName() string { return "user" }
+func (m UserUnionMores) SQLTableName() string { return "user" }
 
 func (m *UserUnionMore) SQLScan(opts core.Opts, row *sql.Row) error {
 	return row.Scan(m.SQLScanArgs(opts)...)
@@ -838,82 +793,74 @@ func (ms *UserUnionMores) SQLScan(opts core.Opts, rows *sql.Rows) error {
 	return nil
 }
 
-func (_ *UserUnionMore) SQLSelect(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnionMore_Select)
+func (m *UserUnionMore) SQLSelect(w SQLWriter) error {
+	(*UserUnionMore)(nil).__sqlSelect(w)
+	w.WriteByte(' ')
+	(*UserUnionMore)(nil).__sqlJoin(w, __sqlUserUnionMore_JoinTypes)
 	return nil
 }
 
-func (_ UserUnionMores) SQLSelect(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnionMore_Select)
+func (m UserUnionMores) SQLSelect(w SQLWriter) error {
+	return (*UserUnionMore)(nil).SQLSelect(w)
+}
+
+func (m *UserUnionMore) SQLJoin(w SQLWriter, types []sq.JOIN_TYPE) error {
+	if len(types) == 0 {
+		types = __sqlUserUnionMore_JoinTypes
+	}
+	m.__sqlJoin(w, types)
 	return nil
 }
 
-func (m *UserUnionMore) SQLInsert(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnionMore_Insert)
-	w.WriteRawString(" (")
-	w.WriteMarkers(3)
-	w.WriteByte(')')
-	w.WriteArgs(m.SQLArgs(w.Opts(), true))
-	return nil
+func (m UserUnionMores) SQLJoin(w SQLWriter, types []sq.JOIN_TYPE) error {
+	return (*UserUnionMore)(nil).SQLJoin(w, types)
 }
 
-func (ms UserUnionMores) SQLInsert(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnionMore_Insert)
-	w.WriteRawString(" (")
-	for i := 0; i < len(ms); i++ {
-		w.WriteMarkers(3)
-		w.WriteArgs(ms[i].SQLArgs(w.Opts(), true))
-		w.WriteRawString("),(")
-	}
-	w.TrimLast(2)
-	return nil
+func (m *UserUnionMore) __sqlSelect(w SQLWriter) {
+	w.WriteRawString("SELECT ")
+	core.WriteCols(w, string(__sqlUserUnionMore_As), __sqlUser_ListCols)
+	w.WriteByte(',')
+	core.WriteCols(w, string(__sqlUserUnionMore_JoinAs[0]), __sqlUserInfo_ListCols)
+	w.WriteByte(',')
+	core.WriteCols(w, string(__sqlUserUnionMore_JoinAs[1]), __sqlUserSubset_ListCols)
 }
 
-func (m *UserUnionMore) SQLUpdate(w SQLWriter) error {
-	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
-	var flag bool
-	w.WriteRawString("UPDATE ")
-	w.WriteName("user_union_more")
-	w.WriteRawString(" SET ")
-	if m.User != nil {
-		flag = true
-		w.WriteName("user")
-		w.WriteByte('=')
-		w.WriteMarker()
-		w.WriteByte(',')
-		w.WriteArg(core.JSON{m.User})
+func (m *UserUnionMore) __sqlJoin(w SQLWriter, types []sq.JOIN_TYPE) {
+	if len(types) != 2 {
+		panic("sqlgen: expect types to join")
 	}
-	if m.UserInfo != nil {
-		flag = true
-		w.WriteName("user_info")
-		w.WriteByte('=')
-		w.WriteMarker()
-		w.WriteByte(',')
-		w.WriteArg(core.JSON{m.UserInfo})
-	}
-	if m.UserSubset != nil {
-		flag = true
-		w.WriteName("user_subset")
-		w.WriteByte('=')
-		w.WriteMarker()
-		w.WriteByte(',')
-		w.WriteArg(core.JSON{m.UserSubset})
-	}
-	if !flag {
-		return core.ErrNoColumn
-	}
-	w.TrimLast(1)
-	return nil
+	w.WriteRawString("FROM ")
+	w.WriteName("user")
+	w.WriteRawString(" AS ")
+	w.WriteRawString(string(__sqlUserUnionMore_As))
+	w.WriteByte(' ')
+	w.WriteRawString(string(types[0]))
+	w.WriteRawString(" JOIN ")
+	w.WriteName(__sqlUserInfo_Table)
+	w.WriteRawString(" AS ")
+	w.WriteRawString(string(__sqlUserUnionMore_JoinAs[0]))
+	w.WriteRawString(" ON ")
+	w.WriteQueryString(__sqlUserUnionMore_JoinConds[0])
+	w.WriteByte(' ')
+	w.WriteRawString(string(types[1]))
+	w.WriteRawString(" JOIN ")
+	w.WriteName(__sqlUserSubset_Table)
+	w.WriteRawString(" AS ")
+	w.WriteRawString(string(__sqlUserUnionMore_JoinAs[1]))
+	w.WriteRawString(" ON ")
+	w.WriteQueryString(__sqlUserUnionMore_JoinConds[1])
 }
 
-func (m *UserUnionMore) SQLUpdateAll(w SQLWriter) error {
-	w.WriteQueryString(__sqlUserUnionMore_UpdateAll)
-	w.WriteRawString(" = (")
-	w.WriteMarkers(3)
-	w.WriteByte(')')
-	w.WriteArgs(m.SQLArgs(w.Opts(), false))
-	return nil
+func (m *UserUnionMore) SQLScanArgs(opts core.Opts) []interface{} {
+	args := make([]interface{}, 0, 64) // TODO: pre-calculate length
+	m.User = new(User)
+	args = append(args, m.User.SQLScanArgs(opts)...)
+	m.UserInfo = new(UserInfo)
+	args = append(args, m.UserInfo.SQLScanArgs(opts)...)
+	m.UserSubset = new(UserSubset)
+	args = append(args, m.UserSubset.SQLScanArgs(opts)...)
+
+	return args
 }
 
 type ComplexInfoes []*ComplexInfo
@@ -1030,7 +977,7 @@ func (ms ComplexInfoes) SQLInsert(w SQLWriter) error {
 
 func (m *ComplexInfo) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName("complex_info")
@@ -1283,7 +1230,7 @@ func (ms UserTags) SQLInsert(w SQLWriter) error {
 
 func (m *UserTag) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName("user_tag")
@@ -1401,7 +1348,7 @@ func (ms UserInlines) SQLInsert(w SQLWriter) error {
 
 func (m *UserInline) SQLUpdate(w SQLWriter) error {
 	now, opts := time.Now(), w.Opts()
-	_, _ = now, opts // suppress unuse error
+	_, _ = now, opts // suppress unused error
 	var flag bool
 	w.WriteRawString("UPDATE ")
 	w.WriteName("user_inline")

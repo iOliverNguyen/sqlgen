@@ -299,7 +299,7 @@ func TestUser(t *testing.T) {
 				query, _, err := db.NewQuery().BuildGet(&userUnion)
 				So(err, ShouldBeNil)
 
-				expectedQuery := `SELECT u."id",u."name",u."created_at",u."updated_at",u."bool",u."float64",u."int",u."int64",u."string",u."p_bool",u."p_float64",u."p_int",u."p_int64",u."p_string",ui."user_id",ui."metadata",ui."bool",ui."float64",ui."int",ui."int64",ui."string",ui."p_bool",ui."p_float64",ui."p_int",ui."p_int64",ui."p_string" FROM "user" AS u FULL OUTER JOIN "user_info" AS ui ON u.id = ui.user_id`
+				expectedQuery := `SELECT u."id",u."name",u."created_at",u."updated_at",u."bool",u."float64",u."int",u."int64",u."string",u."p_bool",u."p_float64",u."p_int",u."p_int64",u."p_string",ui."user_id",ui."metadata",ui."bool",ui."float64",ui."int",ui."int64",ui."string",ui."p_bool",ui."p_float64",ui."p_int",ui."p_int64",ui."p_string" FROM "user" AS u FULL JOIN "user_info" AS ui ON u.id = ui.user_id`
 				So(query, ShouldEqual, expectedQuery)
 			})
 
@@ -486,7 +486,7 @@ func TestUser(t *testing.T) {
 			BuildCount((*UserUnion)(nil))
 		So(err, ShouldBeNil)
 
-		expectedQuery := `SELECT "order",COUNT(*) FROM "user" AS u FULL OUTER JOIN "user_info" AS ui ON u.id = ui.user_id WHERE (u.id = ui.user_id)`
+		expectedQuery := `SELECT "order",COUNT(*) FROM "user" AS u FULL JOIN "user_info" AS ui ON u.id = ui.user_id WHERE (u.id = ui.user_id)`
 		So(query, ShouldEqual, expectedQuery)
 	})
 	Convey("Select and count without JOIN", t, func() {

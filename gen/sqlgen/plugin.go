@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ng-vu/sqlgen/gen/dsl"
+
 	ggen "github.com/ng-vu/sqlgen/gen"
 	"github.com/ng-vu/sqlgen/gen/strs"
 )
@@ -55,6 +57,7 @@ type typeDef struct {
 	preloads []*preloadDef
 
 	tableName string
+	as        string
 	structs   pathElems
 
 	all    bool
@@ -171,7 +174,7 @@ func (p pathElems) append(g *Gen, field *types.Var) pathElems {
 
 type joinDef struct {
 	JoinType types.Type
-	BaseType types.Type
+	JoinDef  *dsl.Join
 }
 
 type preloadDef struct {
@@ -183,16 +186,13 @@ type preloadDef struct {
 	Fkey          string
 }
 
-func (g *Gen) Add(name string, typs []types.Type) error {
-	if len(typs) == 0 {
-		return fmt.Errorf("%s must have at least one argument", name)
-	}
-	sTyp, ok := getStructType(typs[0])
+func (g *Gen) Add(getTypeForStruct func(name string) types.Type, name string, typ types.Type, decl *dsl.Declaration) error {
+	sTyp, ok := getStructType(typ)
 	if !ok {
-		return fmt.Errorf("Type must be struct (got %v)", typs[0].String())
+		return fmt.Errorf("Type must be struct (got %v)", typ.String())
 	}
 
-	cols, excols, err := g.parseColumnsFromType(nil, typs[0], sTyp)
+	cols, excols, err := g.parseColumnsFromType(nil, typ, sTyp)
 	if err != nil {
 		return err
 	}
@@ -224,9 +224,8 @@ func (g *Gen) Add(name string, typs []types.Type) error {
 		preloads[i] = preload
 	}
 
-	typ := typs[0]
 	def := &typeDef{
-		typ:      typs[0],
+		typ:      typ,
 		all:      true,
 		cols:     cols,
 		preloads: preloads,
@@ -238,31 +237,24 @@ func (g *Gen) Add(name string, typs []types.Type) error {
 			break
 		}
 	}
-	switch len(typs) {
-	case 0:
-		panic("Unexpected")
-	case 1:
-		g.bases = append(g.bases, typs[0])
-		g.mapBase[typs[0].String()] = true
-	case 2:
-		def.base = typs[1]
-	default:
-		def.base = typs[1]
+
+	g.bases = append(g.bases, typ)
+	g.mapBase[typ.String()] = true
+
+	if len(decl.Joins) != 0 {
+		def.base = getTypeForStruct(decl.Joins[0].StructName)
 		def.all = false
+		def.as = decl.Joins[0].Alias
 
-		if g.TypeString(typs[2]) != "sq.AS" {
-			fmt.Println(helpJoin)
-			return fmt.Errorf(
-				"JOIN %v: The third param must be sq.AS (got %v)",
-				g.TypeString(typs[0]), g.TypeString(typs[2]))
+		// TODO: off by one for decl.Joins
+		joins := make([]*joinDef, 0, len(decl.Joins)-1)
+		for _, jn := range decl.Joins[1:] {
+			joins = append(joins, &joinDef{
+				JoinType: getTypeForStruct(jn.StructName),
+				JoinDef:  jn,
+			})
 		}
-
-		var err error
-		def.joins, err = g.parseJoin(typs[3:])
-		if err != nil {
-			fmt.Println(helpJoin)
-			return fmt.Errorf("JOIN %v: %v", g.TypeString(typs[0]), err)
-		}
+		def.joins = joins
 	}
 
 	if def.base != nil {
@@ -270,7 +262,7 @@ func (g *Gen) Add(name string, typs []types.Type) error {
 	} else {
 		def.tableName = strs.ToSnake(bareTypeName(typ))
 	}
-	g.mapType[typs[0].String()] = def
+	g.mapType[typ.String()] = def
 	return nil
 }
 
@@ -501,50 +493,6 @@ const helpJoin = `
             UserInfo *UserInfo
         }
 `
-
-func (g *Gen) parseJoin(typs []types.Type) (joins []*joinDef, err error) {
-	if len(typs)%4 != 0 {
-		return nil, fmt.Errorf("Invalid join definition")
-	}
-	for i := 0; i < len(typs); i = i + 4 {
-		join, err := g.parseJoinLine(typs[i:])
-		if err != nil {
-			return nil, err
-		}
-		joins = append(joins, join)
-	}
-	return joins, nil
-}
-
-func (g *Gen) parseJoinLine(typs []types.Type) (*joinDef, error) {
-	if g.TypeString(typs[0]) != "core.JoinType" {
-		return nil, fmt.Errorf("Invalid JoinType: must be one of predefined constants (got %v)", g.TypeString(typs[0]))
-	}
-
-	base := typs[1]
-	if _, ok := getStructType(base); !ok {
-		return nil, fmt.Errorf(
-			"Invalid base type for join: must be pointer to struct (got %v)",
-			g.TypeString(base))
-	}
-
-	as := typs[2]
-	if g.TypeString(as) != "sq.AS" {
-		return nil, fmt.Errorf(
-			"Invalid AS: must be sq.AS (got %v)", g.TypeString(as))
-	}
-
-	cond := typs[3]
-	if g.TypeString(cond) != "string" {
-		return nil, fmt.Errorf(
-			"Invalid condition for join: must be string (got %v)",
-			g.TypeString(cond))
-	}
-
-	return &joinDef{
-		JoinType: base,
-	}, nil
-}
 
 func getStructType(typ types.Type) (*types.Struct, bool) {
 	pt, ok := typ.Underlying().(*types.Pointer)
