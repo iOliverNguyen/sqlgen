@@ -1,17 +1,15 @@
 language: go
 go_import_path: github.com/ng-vu/sqlgen
 go:
-    - 1.10.x
-    - tip
+    - 1.11.x
 sudo: required
 services:
     - docker
 install:
-    - go get -u github.com/golang/dep/cmd/dep
-    - dep ensure
     - sudo pip install docker-compose
     - docker-compose up -d
 script:
     - export PATH=$PATH:$HOME/gopath/bin
     - export GORACE="halt_on_error=1"
-    - go test -v -race ./...
+    - env GO111MODULE=on go install ./...
+    - env GO111MODULE=on go test -v -race ./...

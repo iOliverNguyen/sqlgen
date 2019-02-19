@@ -166,12 +166,39 @@ func parsePackage(pkgpath string) error {
 		}
 		allDecls = append(allDecls, d)
 	}
+
 	for _, decl := range typeDecls {
 		d, err := addToMap(mapDecl, decl)
 		if err != nil {
 			return err
 		}
 		allDecls = append(allDecls, d)
+	}
+
+	for _, decl := range fileDecl.Declarations {
+		for _, jn := range decl.Joins {
+			if jn.TableName == "" {
+				return fmt.Errorf("Empty table name for join")
+			}
+			if jn.StructName == "" {
+				for name, d := range mapDecl {
+					if d.Decl.TableName == jn.TableName {
+						jn.StructName = name
+						break
+					}
+				}
+			}
+			if jn.StructName == "" {
+				return fmt.Errorf("Struct name not found for join with table %v", jn.TableName)
+			}
+			d, ok := mapDecl[jn.StructName]
+			if !ok {
+				return fmt.Errorf("Struct %v using in join must be declared first", jn.StructName)
+			}
+			if d.Decl.TableName != jn.TableName {
+				return fmt.Errorf("Table name %v not match for struct %v", jn.TableName, jn.StructName)
+			}
+		}
 	}
 
 	info := types.Info{
@@ -206,11 +233,19 @@ func parsePackage(pkgpath string) error {
 		}
 	}
 
+	getTypeForStruct := func(name string) types.Type {
+		t := mapDecl[name]
+		if t == nil {
+			panic(fmt.Sprintf("type %v not found", name))
+		}
+		return t.Type
+	}
+
 	adapter := NewAdapter()
 	adapter.pkg = tpkg
 	g := gen.New(adapter, nil)
 	for _, decl := range allDecls {
-		err = g.Add(decl.Decl.StructName, []types.Type{decl.Type})
+		err = g.Add(getTypeForStruct, decl.Decl.StructName, decl.Type, decl.Decl)
 		if err != nil {
 			return err
 		}

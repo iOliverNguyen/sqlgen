@@ -22,11 +22,11 @@ package dsl
 %type  <jns>  joins from_joins
 %type  <opt>  opt
 %type  <opts> list_opts opts
-%type  <str>  name _as _ident _on
+%type  <str>  name _as _ident _on _join_type
 
 %token '.' ';' '(' ')'
 
-%token GENERATE FROM AS JOIN ON
+%token GENERATE FROM AS FULL LEFT RIGHT INNER JOIN ON
 
 %token <str> IDENT STRING JCOND
 
@@ -179,17 +179,40 @@ joins:
     }
 
 join:
-    JOIN table join_opts _as _on
+    _join_type JOIN table join_opts _as _on
     {
         $$ = &Join{
             DeclCommon: DeclCommon{
-                SchemaName: $2.SchemaName,
-                TableName:  $2.TableName,
-                StructName: $3.StructName,
-                Alias: $4,
+                SchemaName: $3.SchemaName,
+                TableName:  $3.TableName,
+                StructName: $4.StructName,
+                Alias: $5,
             },
-            OnCond: $5,
+            JoinType: $1,
+            OnCond: $6,
         }
+    }
+
+_join_type:
+    /* empty */
+    {
+        $$ = ""
+    }
+|   INNER
+    {
+        $$ = ""
+    }
+|   LEFT
+    {
+        $$ = "LEFT"
+    }
+|   RIGHT
+    {
+        $$ = "RIGHT"
+    }
+|   FULL
+    {
+        $$ = "FULL"
     }
 
 join_opts:
